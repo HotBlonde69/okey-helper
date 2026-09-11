@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Metin2 - Okey Helper</title>
+  <style>
+    :root {
+      --bg: #101015;
+      --panel: #16161c;
+      --text: #fff;
+      --muted: #9a9a9a;
+      --blue: #2355ac;
+      --red: #a30c13;
+      --yellow: #e1b615;
+      --used: #3a3a3a;
+      --play: #1f9d55;
+      --discard: #d9480f;
+      --slot: #1a1510;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 16px 12px 40px;
+      text-align: center;
+    }
+
+    h1 { margin: 0 0 8px; font-size: 22px; }
+
+    .controls { display: flex; justify-content: center; gap: 8px; margin: 8px 0 12px; }
+    .controls button {
+      background: transparent;
+      color: #fff;
+      border: 1px solid #fff;
+      width: 36px;
+      height: 32px;
+      cursor: pointer;
+    }
+    .controls button:hover { background: #1c1c24; }
+
+    .language-picker {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .language-picker select {
+      background: var(--panel);
+      color: #fff;
+      border: 1px solid #444;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .goal-toggle {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .goal-toggle .goal-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+    .goal-toggle button {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid #444;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .goal-toggle button:hover { background: #1c1c24; color: #fff; }
+    .goal-toggle button.on {
+      color: #f0d060;
+      border-color: #f0d060;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .pts { font-size: 28px; font-weight: 800; }
+    .chest { font-size: 13px; color: var(--muted); }
+    .chest.aim { color: #f0d060; }
+    .chest.hit b { color: #f0d060; }
+
+    .bar {
+      width: min(520px, 100%);
+      height: 14px;
+      background: #222;
+      margin: 18px auto 4px;
+      position: relative;
+      border: 1px solid #333;
+    }
+    .bar .fill { height: 100%; background: #3d7e4a; width: 0; }
+    .bar .mark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #555; }
+    .bar .mark.aim { background: #f0d060; }
+    .chance-tag {
+      position: absolute;
+      top: -18px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #f0d060;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .bar-labels {
+      width: min(520px, 100%);
+      margin: 0 auto 4px;
+      height: 16px;
+      position: relative;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .bar-labels span { position: absolute; top: 0; white-space: nowrap; }
+    .bar-labels .l0 { left: 0; }
+    .bar-labels .l300 { left: 75%; transform: translateX(-50%); }
+    .bar-labels .l400 { right: 0; }
+    .chance-hint {
+      font-size: 12px;
+      color: #c8c8c8;
+      margin: 0 auto 14px;
+      min-height: 18px;
+    }
+
+    .advice {
+      border: 1px solid #444;
+      padding: 10px 14px;
+      margin: 0 auto 14px;
+      max-width: 720px;
+      text-align: left;
+    }
+    .advice.play { border-color: var(--play); }
+    .advice.discard { border-color: var(--discard); }
+    .advice.gameover { border-color: #ef4444; }
+    .advice.gameover .title { color: #ef4444; }
+    .advice .title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+    .advice .why { color: #c8c8c8; font-size: 13px; }
+
+    .hand-wrap {
+      background: var(--panel);
+      border: 1px solid #2a2a22;
+      padding: 14px 12px 10px;
+      margin: 0 auto 8px;
+      max-width: 720px;
+    }
+    .hand-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .hand {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .slot {
+      width: 78px;
+      height: 108px;
+      border: 1px dashed #5a5344;
+      background: var(--slot);
+      border-radius: 6px;
+      position: relative;
+    }
+    .slot.over { outline: 2px solid #f0d060; }
+
+    .card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 3px #000;
+      border: 1px solid #000;
+      position: relative;
+      user-select: none;
+    }
+    .card.blue { background: var(--blue); }
+    .card.red { background: var(--red); }
+    .card.yellow { background: var(--yellow); color: #111; text-shadow: none; }
+    .card.used { background: var(--used); color: #888; cursor: default; }
+    .card.in-hand { opacity: 0.28; cursor: default; }
+
+    .slot .card {
+      width: 100%;
+      height: 100%;
+      font-size: 32px;
+      border-radius: 6px;
+      cursor: grab;
+    }
+    .slot .card.play { box-shadow: inset 0 0 0 4px var(--play); }
+    .slot .card.discard { box-shadow: inset 0 0 0 4px var(--discard); }
+    .slot .card .tag {
+      position: absolute;
+      bottom: 6px;
+      left: 0;
+      right: 0;
+      font-size: 10px;
+      text-transform: uppercase;
+      text-shadow: none;
+    }
+    .slot .card .pct {
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(0, 0, 0, 0.58);
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 8px;
+      text-shadow: none;
+      letter-spacing: 0;
+      line-height: 1.3;
+      pointer-events: none;
+    }
+    .chance-tag.silver-chance { left: 75%; transform: translateX(-50%); }
+    .chance-tag.gold-chance { left: 100%; transform: translateX(-100%); }
+    .slot .card .pct.best { background: rgba(31, 157, 85, 0.92); }
+    .slot .card .pct.zero { background: rgba(217, 72, 15, 0.92); }
+
+    .hint { color: var(--muted); font-size: 12px; margin: 0 auto 16px; }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      max-width: 750px;
+      margin: 0 auto 8px;
+    }
+    .board .card {
+      aspect-ratio: 64 / 89;
+      font-size: 22px;
+      cursor: grab;
+    }
+    .board .card:not(.used):not(.in-hand):hover { filter: brightness(1.12); }
+
+    .legend { color: var(--muted); font-size: 12px; margin: 8px 0 16px; }
+    .legend span { margin: 0 8px; }
+    .sw { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin-right: 3px; }
+    .sw.play { background: var(--play); }
+    .sw.discard { background: var(--discard); }
+    .sw.used { background: var(--used); }
+
+    .points { margin-top: 8px; }
+    .points table {
+      display: inline-table;
+      border-collapse: collapse;
+      margin: 6px;
+      font-size: 13px;
+    }
+    .points td { border: 1px solid #fff; padding: 2px 12px; }
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-left: 4px;
+      vertical-align: -1px;
+    }
+    .dot.all { background: #ddd; }
+    .dot.blue { background: var(--blue); }
+    .dot.red { background: var(--red); }
+    .dot.yellow { background: var(--yellow); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Metin2 - Okey Helper</h1>
+
+    <div class="controls">
+      <button type="button" id="undoBtn" title="Desfazer">↩</button>
+      <button type="button" id="redoBtn" title="Refazer">↪</button>
+      <button type="button" id="clearBtn" title="Limpar">✕</button>
+    </div>
+
+    <div class="language-picker">
+      <label id="languageLabel" for="languageSelect">Idioma</label>
+      <select id="languageSelect">
+        <option value="pt">Português</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
+    <div class="goal-toggle" id="goalGroup" role="group" aria-label="Objectivo">
+      <span class="goal-label" id="goalLabel">Objectivo</span>
+      <button type="button" id="goalSilverBtn" class="on" aria-pressed="true">Prata 300</button>
+      <button type="button" id="goalGoldBtn" aria-pressed="false">Ouro 400</button>
+    </div>
+
+    <div class="score-row">
+      <div class="pts" id="scoreLabel">0</div>
+      <div class="chest aim" id="silverLabel">Prata <b>300</b></div>
+      <div class="chest" id="goldLabel">Ouro <b>400</b></div>
+    </div>
+    <div class="bar">
+      <div class="fill" id="barFill"></div>
+      <div class="mark silver-mark aim" style="left:75%"></div>
+      <div class="mark gold-mark" style="left:100%"></div>
+      <div class="chance-tag silver-chance" id="silverChanceTag"></div>
+      <div class="chance-tag gold-chance" id="goldChanceTag"></div>
+    </div>
+    <div class="bar-labels"><span class="l0">0</span><span class="l300" id="barSilverLabel">300 Prata</span><span class="l400" id="barGoldLabel">400 Ouro</span></div>
+    <div class="chance-hint" id="chanceHint"></div>
+
+    <div class="advice" id="advice"></div>
+
+    <div class="hand-wrap">
+      <div class="hand-label" id="handLabel">Mão</div>
+      <div class="hand" id="hand"></div>
+    </div>
+    <p class="hint" id="instructions">
+      Arrasta uma carta de baixo para um espaço vazio.
+      A sugestão só aparece com 5 cartas.
+      Clique esquerdo na mão: jogar a combinação.
+      Clique direito numa carta da mão: descartar.
+    </p>
+
+    <div class="board" id="board"></div>
+    <div class="legend">
+      <span><i class="sw play"></i><span id="legendPlay">Jogar</span></span>
+      <span><i class="sw discard"></i><span id="legendDiscard">Descartar</span></span>
+      <span><i class="sw used"></i><span id="legendUsed">Já saiu</span></span>
+    </div>
+    <div class="hint" id="deckHint"></div>
+
+    <div class="points">
+      <table>
+        <tr><td id="groupCardsHeader">Cartas</td><td id="pointsHeader">Pontos</td></tr>
+        <tbody id="groupTable"></tbody>
+      </table>
+      <table>
+        <tr><td id="sequenceCardsHeader">Cartas</td><td id="differentColorsHeader">Cores diferentes</td><td id="sameColorHeader">Mesma cor</td></tr>
+        <tbody id="seqTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const COLORS = ["blue", "red", "yellow"];
+    const SILVER = 300;
+    const GOLD = 400;
+    const I18N = {
+      pt: {
+        language: "Idioma",
+        goal: "Objectivo",
+        silver: "Prata",
+        gold: "Ouro",
+        hand: "Mão",
+        instructions: "Arrasta uma carta de baixo para um espaço vazio. A sugestão só aparece com 5 cartas. Clique esquerdo na mão: jogar a combinação. Clique direito numa carta da mão: descartar.",
+        play: "Jogar",
+        discard: "Descartar",
+        used: "Já saiu",
+        cards: "Cartas",
+        points: "Pontos",
+        differentColors: "Cores diferentes",
+        sameColor: "Mesma cor",
+        undo: "Desfazer",
+        redo: "Refazer",
+        clear: "Limpar",
+        blue: "azul",
+        red: "vermelho",
+        yellow: "amarelo",
+        groupLabel: "Grupo {ranks}",
+        sequenceSameLabel: "Sequência {ranks} {color}",
+        sequenceMixedLabel: "Sequência {ranks} (cores diferentes)",
+        emptyTitle: "Arrasta as cartas da mão para os 5 espaços",
+        emptyWhy: "A melhor jogada só é calculada quando a mão estiver cheia.",
+        completeTitle: "Completa a mão ({count}/5)",
+        completeWhyLong: "Faltam {missing} carta(s). A jogada (combinar ou descartar) só é calculada com 5 cartas.",
+        completeWhy: "Faltam {missing} carta(s). A jogada só é calculada com 5 cartas.",
+        playTitle: "Jogar {label}  +{score}",
+        discardTitle: "Descartar o {card}",
+        sameSequenceWhy: "Sequência da mesma cor — a jogada que mais pontos dá.",
+        groupWhy: "Grupo completo na mão. Pontos seguros agora.",
+        mixedSequenceWhy: "Série mista. Ajuda a chegar ao objectivo com as cartas que restam.",
+        reachesSilver: "Isto chega aos 300 (Prata).",
+        reachesGold: "Isto chega aos 400 (Ouro).",
+        scoreRemaining: "Ficam {score} pts. Faltam {missing} para {goal}.",
+        goalChance: "Hipótese de chegar ao objectivo: {pct}%.",
+        averageFinal: "Média final simulada: {avg} pts.",
+        ceiling: "Tecto com o que resta: {points} pts.",
+        silverPhrase: "à Prata (300)",
+        goldPhrase: "ao Ouro (400)",
+        silverDestination: "à Prata",
+        goldDestination: "ao Ouro",
+        discardBest: "Esta opção obteve a maior média final: {avg} pts. {pct}% das simulações chegaram {goal}.",
+        canStillBuild: "Ainda podes montar {combos} com as cartas que restam.",
+        blocksGoal: "Descartar {cards} impede chegar aos {goal} pontos com as cartas que restam.",
+        lowersChance: "Descartar o {card} baixa a hipótese para {pct}%.",
+        pairNeed: "Além disso ficas com um par da mesma cor a 1 peça: basta vir {cards}.",
+        or: " ou ",
+        leastDamage: "É a carta que menos prejudica o caminho para o objectivo.",
+        goldReached: "Ouro alcançado.",
+        silverReached: "Prata alcançada.",
+        cannotReach: "0% de chegar {goal} ({points}) com as cartas que restam.",
+        chanceSummary: "{pct}% de chegar {goal} ({points}) · média simulada: {avg} pts",
+        chanceSummaryBoth: "Prata: {silver}% · Ouro: {gold}% · média simulada: {avg} pts",
+        exactCalculation: "cálculo exacto",
+        scenarios: "{count} cenários",
+        chanceFullHand: "As chances só são calculadas quando a mão estiver cheia.",
+        calculating: "A calcular…",
+        deckInfo: "Baralho: {deck} · Já saíram: {used} · Mão: {hand}/5",
+        calculatingTitle: "A calcular a melhor jogada…",
+        calculatingWhy: "Podes continuar a usar a página enquanto a análise decorre.",
+        startError: "Não foi possível iniciar a análise",
+        analysisError: "Erro ao calcular a jogada",
+        interrupted: "A análise foi interrompida.",
+        unknownError: "Erro desconhecido.",
+        gameOverTitle: "Game Over!",
+        gameOverWhy: "É impossível alcançar o objectivo mínimo de 300 pontos. O jogo pode ser terminado.",
+        gameOverNoPointsWhy: "Não é possível fazer mais pontos porque já não existem combinações disponíveis. O jogo pode ser terminado."
+      },
+      en: {
+        language: "Language",
+        goal: "Target",
+        silver: "Silver",
+        gold: "Gold",
+        hand: "Hand",
+        instructions: "Drag a card from below into an empty slot. A suggestion appears only with 5 cards. Left-click the hand to play the combination. Right-click a card in the hand to discard it.",
+        play: "Play",
+        discard: "Discard",
+        used: "Already used",
+        cards: "Cards",
+        points: "Points",
+        differentColors: "Different colors",
+        sameColor: "Same color",
+        undo: "Undo",
+        redo: "Redo",
+        clear: "Clear",
+        blue: "blue",
+        red: "red",
+        yellow: "yellow",
+        groupLabel: "Group {ranks}",
+        sequenceSameLabel: "{color} sequence {ranks}",
+        sequenceMixedLabel: "Sequence {ranks} (different colors)",
+        emptyTitle: "Drag cards into the 5 hand slots",
+        emptyWhy: "The best move is calculated only when the hand is full.",
+        completeTitle: "Complete the hand ({count}/5)",
+        completeWhyLong: "{missing} card(s) missing. The move (play or discard) is calculated only with 5 cards.",
+        completeWhy: "{missing} card(s) missing. The move is calculated only with 5 cards.",
+        playTitle: "Play {label}  +{score}",
+        discardTitle: "Discard {card}",
+        sameSequenceWhy: "Same-color sequence — the highest-scoring move.",
+        groupWhy: "Complete group in hand. Guaranteed points now.",
+        mixedSequenceWhy: "Mixed-color sequence. It helps reach the target with the remaining cards.",
+        reachesSilver: "This reaches 300 (Silver).",
+        reachesGold: "This reaches 400 (Gold).",
+        scoreRemaining: "The score becomes {score}. {missing} more needed for {goal}.",
+        goalChance: "Chance of reaching the target: {pct}%.",
+        averageFinal: "Simulated final average: {avg} pts.",
+        ceiling: "Ceiling with the remaining cards: {points} pts.",
+        silverPhrase: "Silver (300)",
+        goldPhrase: "Gold (400)",
+        silverDestination: "Silver",
+        goldDestination: "Gold",
+        discardBest: "This option achieved the highest final average: {avg} pts. {pct}% of simulations reached {goal}.",
+        canStillBuild: "You can still build {combos} with the remaining cards.",
+        blocksGoal: "Discarding {cards} prevents reaching {goal} points with the remaining cards.",
+        lowersChance: "Discarding {card} lowers the chance to {pct}%.",
+        pairNeed: "You also keep a same-color pair one card away: you need {cards}.",
+        or: " or ",
+        leastDamage: "This card causes the least damage to the path towards the target.",
+        goldReached: "Gold reached.",
+        silverReached: "Silver reached.",
+        cannotReach: "0% chance of reaching {goal} ({points}) with the remaining cards.",
+        chanceSummary: "{pct}% chance of reaching {goal} ({points}) · simulated average: {avg} pts",
+        chanceSummaryBoth: "Silver: {silver}% · Gold: {gold}% · simulated average: {avg} pts",
+        exactCalculation: "exact calculation",
+        scenarios: "{count} scenarios",
+        chanceFullHand: "The chances are calculated only when the hand is full.",
+        calculating: "Calculating…",
+        deckInfo: "Deck: {deck} · Already used: {used} · Hand: {hand}/5",
+        calculatingTitle: "Calculating the best move…",
+        calculatingWhy: "You can continue using the page while the analysis runs.",
+        startError: "Could not start the analysis",
+        analysisError: "Error while calculating the move",
+        interrupted: "The analysis was interrupted.",
+        unknownError: "Unknown error.",
+        gameOverTitle: "Game Over!",
+        gameOverWhy: "It is impossible to reach the minimum target of 300 points. The game can be ended.",
+        gameOverNoPointsWhy: "No more points can be scored because no combinations remain available. The game can be ended."
+      }
+    };
+
+    let language = localStorage.getItem("okey-helper-language") === "en" ? "en" : "pt";
+
+    function tr(key, vars) {
+      let text = (I18N[language] && I18N[language][key]) || I18N.pt[key] || key;
+      if (!vars) return text;
+      return text.replace(/\{(\w+)\}/g, (_, name) =>
+        Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : "{" + name + "}"
+      );
+    }
+
+    function colorName(color) {
+      return tr(color);
+    }
+
+    function cardLabel(card) {
+      return language === "en" ? colorName(card.color) + " " + card.rank : card.rank + " " + colorName(card.color);
+    }
+
+    const ALL = [];
+    for (const color of COLORS) {
+      for (let rank = 1; rank <= 8; rank++) ALL.push({ color, rank, key: color + "-" + rank });
+    }
+
+    let slots = [null, null, null, null, null];
+    let used = new Set();
+    let score = 0;
+    let target = SILVER;
+    let history = [{ slots: [null, null, null, null, null], used: [], score: 0 }];
+    let histPos = 0;
+    let advice = null;
+    let analysisSamples = 600;
+
+    function groupScore(n) { return 10 * n + 10; }
+    function seqScore(min, same) { return (same ? 40 : 0) + 10 * min; }
+    function cardByKey(key) { return ALL.find(c => c.key === key); }
+    function handKeys() { return slots.filter(Boolean); }
+    function handCards() { return handKeys().map(cardByKey); }
+    function remainingCards() { return ALL.filter(c => !used.has(c.key)); }
+    function hasCard(pool, color, rank) { return pool.some(c => c.color === color && c.rank === rank); }
+
+    function classify(trio) {
+      const ranks = trio.map(c => c.rank).sort((a, b) => a - b);
+      const colors = trio.map(c => c.color);
+      if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
+        if (new Set(colors).size !== 3) return null;
+        return {
+          type: "group",
+          score: groupScore(ranks[0]),
+          sameColor: false,
+          label: tr("groupLabel", { ranks: ranks[0] + "-" + ranks[0] + "-" + ranks[0] })
+        };
+      }
+      if (ranks[1] === ranks[0] + 1 && ranks[2] === ranks[1] + 1) {
+        const same = colors[0] === colors[1] && colors[1] === colors[2];
+        return {
+          type: "seq",
+          score: seqScore(ranks[0], same),
+          sameColor: same,
+          label: same
+            ? tr("sequenceSameLabel", { ranks: ranks.join("-"), color: colorName(colors[0]) })
+            : tr("sequenceMixedLabel", { ranks: ranks.join("-") })
+        };
+      }
+      return null;
+    }
+
+    function findCombos(cards) {
+      const out = [];
+      for (let i = 0; i < cards.length; i++) {
+        for (let j = i + 1; j < cards.length; j++) {
+          for (let k = j + 1; k < cards.length; k++) {
+            const trio = [cards[i], cards[j], cards[k]];
+            const info = classify(trio);
+            if (info) out.push({ cards: trio, keys: trio.map(c => c.key), ...info });
+          }
+        }
+      }
+      return out;
+    }
+
+    function keepValue(card, pool) {
+      let best = 0;
+      for (const start of [card.rank - 2, card.rank - 1, card.rank]) {
+        if (start < 1 || start > 6) continue;
+        const ranks = [start, start + 1, start + 2];
+        if (ranks.every(r => hasCard(pool, card.color, r))) {
+          best = Math.max(best, seqScore(start, true));
+        }
+      }
+      if (COLORS.every(col => hasCard(pool, col, card.rank))) {
+        best = Math.max(best, groupScore(card.rank));
+      }
+      return best;
+    }
+
+    function comboPlayValue(combo, desperate) {
+      if (combo.type === "seq" && !combo.sameColor) {
+        return desperate ? combo.score * 0.35 : combo.score * 0.05;
+      }
+      return combo.score;
+    }
+
+    function bestComboIn(cards, desperate) {
+      let best = null;
+      let v = 0;
+      for (const combo of findCombos(cards)) {
+        const val = comboPlayValue(combo, desperate);
+        if (val > v) {
+          v = val;
+          best = combo;
+        }
+      }
+      return { combo: best, value: v };
+    }
+
+    function drawPile(hand, pool) {
+      const blocked = new Set(hand.map(c => c.key));
+      return pool.filter(c => !blocked.has(c.key));
+    }
+
+    // Pares consecutivos da mesma cor: falta 1 carta (ex. 3-4 azul precisa de 2 ou 5 azul)
+    function colorRunNeeds(hand4, deck) {
+      const outs = [];
+      for (let i = 0; i < hand4.length; i++) {
+        for (let j = i + 1; j < hand4.length; j++) {
+          const a = hand4[i];
+          const b = hand4[j];
+          if (a.color !== b.color) continue;
+          const needs = [];
+          if (Math.abs(a.rank - b.rank) === 1) {
+            const lo = Math.min(a.rank, b.rank);
+            const hi = Math.max(a.rank, b.rank);
+            if (lo > 1) {
+              needs.push({
+                rank: lo - 1,
+                color: a.color,
+                score: seqScore(lo - 1, true),
+                label: (lo - 1) + "-" + lo + "-" + hi + " " + colorName(a.color)
+              });
+            }
+            if (hi < 8) {
+              needs.push({
+                rank: hi + 1,
+                color: a.color,
+                score: seqScore(lo, true),
+                label: lo + "-" + hi + "-" + (hi + 1) + " " + colorName(a.color)
+              });
+            }
+          } else if (Math.abs(a.rank - b.rank) === 2) {
+            const mid = (a.rank + b.rank) / 2;
+            const lo = Math.min(a.rank, b.rank);
+            needs.push({
+              rank: mid,
+              color: a.color,
+              score: seqScore(lo, true),
+              label: lo + "-" + mid + "-" + Math.max(a.rank, b.rank) + " " + colorName(a.color)
+            });
+          }
+          for (const n of needs) {
+            if (deck.some(c => c.color === n.color && c.rank === n.rank)) outs.push(n);
+          }
+        }
+      }
+      return outs;
+    }
+
+    function pairValueFromNeeds(needs) {
+      let v = 0;
+      const seen = new Set();
+      for (const n of needs) {
+        const k = n.color + "-" + n.rank + "-" + n.score;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        v += n.score;
+      }
+      return v;
+    }
+
+    function seededComboValue(hand, pool) {
+      let total = 0;
+      const kept = [];
+      for (const col of COLORS) {
+        const seqs = [];
+        for (let start = 1; start <= 6; start++) {
+          const ranks = [start, start + 1, start + 2];
+          if (!ranks.every(r => hasCard(pool, col, r))) continue;
+          const seeds = ranks.filter(r => hand.some(c => c.color === col && c.rank === r)).length;
+          if (!seeds) continue;
+          const sc = seqScore(start, true);
+          const add = seeds >= 2 ? sc : Math.round(sc * 0.5);
+          total += add;
+          seqs.push({ ranks, score: sc, seeds });
+          kept.push({
+            label: start + "-" + (start + 1) + "-" + (start + 2) + " " + colorName(col),
+            score: sc,
+            seeds,
+            add
+          });
+        }
+        let twoSeq = 0;
+        for (let i = 0; i < seqs.length; i++) {
+          for (let j = i + 1; j < seqs.length; j++) {
+            const overlap = seqs[i].ranks.some(r => seqs[j].ranks.indexOf(r) >= 0);
+            if (!overlap) twoSeq = Math.max(twoSeq, Math.min(seqs[i].score, seqs[j].score));
+          }
+        }
+        total += twoSeq;
+      }
+      for (let n = 1; n <= 8; n++) {
+        if (!COLORS.every(col => hasCard(pool, col, n))) continue;
+        const seeds = COLORS.filter(col => hand.some(c => c.color === col && c.rank === n)).length;
+        if (!seeds) continue;
+        const sc = groupScore(n);
+        const add = seeds >= 2 ? sc : Math.round(sc * 0.35);
+        total += add;
+        kept.push({
+          label: tr("groupLabel", { ranks: n + "-" + n + "-" + n }),
+          score: sc,
+          seeds,
+          add
+        });
+      }
+      kept.sort((a, b) => b.score - a.score || b.seeds - a.seeds);
+      return { total, kept };
+    }
+
+    function evaluateDiscard(drop, hand5, pool, desperate) {
+      const hand4 = hand5.filter(c => c.key !== drop.key);
+      const deck = drawPile(hand5, pool);
+      let ev = 0;
+      let sameColorHits = 0;
+      for (const draw of deck) {
+        const next = bestComboIn(hand4.concat([draw]), desperate);
+        ev += next.value;
+        if (next.combo && next.combo.sameColor) sameColorHits++;
+      }
+      const n = Math.max(deck.length, 1);
+      const runNeeds = colorRunNeeds(hand4, deck);
+      const afterPool = withoutKeys(pool, [drop.key]);
+      const seeded = seededComboValue(hand4, afterPool);
+      return {
+        drop,
+        ev: ev / n,
+        runNeeds,
+        outs: runNeeds.length,
+        sameColorHits,
+        pairValue: pairValueFromNeeds(runNeeds),
+        keepPack: optimisticGood(afterPool),
+        keepSeed: seeded.total,
+        keptSeqs: seeded.kept
+      };
+    }
+
+    function goodCombosFrom(pool) {
+      const combos = [];
+      for (let n = 1; n <= 8; n++) {
+        if (COLORS.every(col => hasCard(pool, col, n))) {
+          combos.push({
+            cards: COLORS.map(col => pool.find(c => c.color === col && c.rank === n)),
+            score: groupScore(n)
+          });
+        }
+      }
+      for (const col of COLORS) {
+        for (let start = 1; start <= 6; start++) {
+          const ranks = [start, start + 1, start + 2];
+          if (ranks.every(r => hasCard(pool, col, r))) {
+            combos.push({
+              cards: ranks.map(r => pool.find(c => c.color === col && c.rank === r)),
+              score: seqScore(start, true)
+            });
+          }
+        }
+      }
+      return combos;
+    }
+
+    function takeGreedyGood(pool) {
+      const left = pool.slice();
+      let pts = 0;
+      while (left.length >= 3) {
+        const combos = goodCombosFrom(left);
+        if (!combos.length) break;
+        combos.sort((a, b) => b.score - a.score);
+        const pick = combos[0];
+        pts += pick.score;
+        const drop = new Set(pick.cards.map(c => c.key));
+        for (let i = left.length - 1; i >= 0; i--) {
+          if (drop.has(left[i].key)) left.splice(i, 1);
+        }
+      }
+      return { pts, left };
+    }
+
+    function optimisticGood(pool) {
+      return takeGreedyGood(pool).pts;
+    }
+
+    const maxCache = new Map();
+
+    function poolKey(pool) {
+      return pool.map(c => c.key).sort().join(",");
+    }
+
+    function maxPointsExact(pool) {
+      const n = pool.length;
+      if (n < 3) return 0;
+      const combos = [];
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          for (let k = j + 1; k < n; k++) {
+            const info = classify([pool[i], pool[j], pool[k]]);
+            if (!info) continue;
+            combos.push({ bits: (1 << i) | (1 << j) | (1 << k), score: info.score });
+          }
+        }
+      }
+      if (!combos.length) return 0;
+      const memo = new Int16Array(1 << n);
+      memo.fill(-1);
+      function rec(mask) {
+        const cached = memo[mask];
+        if (cached >= 0) return cached;
+        let best = 0;
+        for (let i = 0; i < combos.length; i++) {
+          const c = combos[i];
+          if ((mask & c.bits) === c.bits) {
+            const v = c.score + rec(mask ^ c.bits);
+            if (v > best) best = v;
+          }
+        }
+        memo[mask] = best;
+        return best;
+      }
+      return rec((1 << n) - 1);
+    }
+
+    function maxPoints(pool) {
+      if (pool.length < 3) return 0;
+      const key = poolKey(pool);
+      if (maxCache.has(key)) return maxCache.get(key);
+      let v;
+      if (pool.length <= 16) {
+        v = maxPointsExact(pool);
+      } else {
+        const g = takeGreedyGood(pool);
+        v = g.pts + maxPointsExact(g.left);
+      }
+      maxCache.set(key, v);
+      return v;
+    }
+
+    function minimumGoalImpossible() {
+      if (score >= SILVER) return false;
+      const pool = remainingCards();
+      if (pool.length > 16) return false;
+      return score + maxPointsExact(pool) < SILVER;
+    }
+
+    function gameOverReason() {
+      if (findCombos(remainingCards()).length === 0) return "noPoints";
+      if (minimumGoalImpossible()) return "minimumGoal";
+      return null;
+    }
+
+    function currentGoal(sc) {
+      if (sc >= target) return 0;
+      return target;
+    }
+
+    function withoutKeys(pool, keys) {
+      const drop = new Set(keys);
+      return pool.filter(c => !drop.has(c.key));
+    }
+
+    function comboDestroysColorSeq(combo, pool) {
+      if (combo.sameColor) return false;
+      return combo.cards.some(card => keepValue(card, pool) >= 50);
+    }
+
+    function advisePlay() {
+      const cards = handCards();
+      if (cards.length === 0) {
+        return {
+          kind: "empty",
+          title: tr("emptyTitle"),
+          why: tr("emptyWhy")
+        };
+      }
+      if (cards.length < 5) {
+        return {
+          kind: "wait",
+          title: tr("completeTitle", { count: cards.length }),
+          why: tr("completeWhyLong", { missing: 5 - cards.length })
+        };
+      }
+
+      maxCache.clear();
+      const pool = remainingCards();
+      const goal = currentGoal(score);
+      const desperate = goal && score + optimisticGood(pool) < goal;
+      const actions = [];
+
+      for (const combo of findCombos(cards)) {
+        const afterPool = withoutKeys(pool, combo.keys);
+        const newScore = score + combo.score;
+        const pot = maxPoints(afterPool);
+        const ceil = newScore + pot;
+        const reach = goal && newScore >= goal;
+        const mixed = combo.type === "seq" && !combo.sameColor;
+        if (mixed && target === GOLD && !desperate && !reach && comboDestroysColorSeq(combo, pool)) continue;
+        actions.push({
+          kind: "play",
+          combo,
+          keys: combo.keys,
+          newScore,
+          pot,
+          ceil,
+          brick: goal && newScore < goal && ceil < goal,
+          reach
+        });
+      }
+
+      for (const card of cards) {
+        const afterPool = withoutKeys(pool, [card.key]);
+        const afterHand = cards.filter(c => c.key !== card.key);
+        const afterUsed = new Set(used);
+        afterUsed.add(card.key);
+        const ceil = score + maxPoints(afterPool);
+        actions.push({
+          kind: "discard",
+          card,
+          keys: [card.key],
+          ceil,
+          brick: goal && score < goal && ceil < goal,
+          afterHand,
+          afterUsed,
+          analysis: evaluateDiscard(card, cards, pool, desperate)
+        });
+      }
+
+      let opts = actions.filter(a => !a.brick);
+      if (!opts.length) opts = actions.slice();
+
+      const nSim = analysisSamples;
+      const rolloutSeeds = makeRolloutSeeds(
+        nSim,
+        target + "|" + score + "|" + cards.map(c => c.key).sort().join(",") + "|" + [...used].sort().join(",")
+      );
+
+      for (const a of actions) {
+        if (a.kind !== "discard") continue;
+        const ch = chanceFrom(a.afterHand, a.afterUsed, score, goal, rolloutSeeds);
+        a.p = ch.p;
+        a.pSilver = ch.pSilver;
+        a.pGold = ch.pGold;
+        a.avg = ch.avg;
+      }
+
+      function cardChancesFrom(list) {
+        const map = {};
+        if (!goal) return map;
+        for (const a of list) {
+          if (a.kind === "discard" && a.p != null) map[a.card.key] = Math.round(a.p * 100);
+        }
+        return map;
+      }
+
+      function isLockedPlay(a) {
+        return a.kind === "play" && (a.combo.sameColor || a.combo.type === "group");
+      }
+
+      const reaching = opts.filter(a => a.reach);
+      const locked = opts.filter(isLockedPlay);
+      const forcePlay = reaching.length ? reaching : locked;
+      if (forcePlay.length) {
+        forcePlay.sort((a, b) => {
+          const am = a.combo.sameColor || a.combo.type === "group" ? 1 : 0;
+          const bm = b.combo.sameColor || b.combo.type === "group" ? 1 : 0;
+          return b.combo.score - a.combo.score || bm - am;
+        });
+        const best = forcePlay[0];
+        const afterHand = cards.filter(c => best.combo.keys.indexOf(c.key) < 0);
+        const afterUsed = new Set(used);
+        best.combo.keys.forEach(k => afterUsed.add(k));
+        const ch = chanceFrom(afterHand, afterUsed, best.newScore, goal, rolloutSeeds);
+        return {
+          kind: "play",
+          combo: best.combo,
+          keys: best.combo.keys,
+          p: ch.p,
+          pSilver: ch.pSilver,
+          pGold: ch.pGold,
+          avg: ch.avg,
+          cardChances: cardChancesFrom(actions),
+          title: tr("playTitle", { label: best.combo.label, score: best.combo.score }),
+          why: playWhy(best.combo, best.newScore, best.pot, goal, ch.p, ch.avg)
+        };
+      }
+
+      for (const a of opts) {
+        if (a.kind !== "play" || a.p != null) continue;
+        const afterHand = cards.filter(c => a.combo.keys.indexOf(c.key) < 0);
+        const afterUsed = new Set(used);
+        a.combo.keys.forEach(k => afterUsed.add(k));
+        const ch = chanceFrom(afterHand, afterUsed, a.newScore, goal, rolloutSeeds);
+        a.p = ch.p;
+        a.pSilver = ch.pSilver;
+        a.pGold = ch.pGold;
+        a.avg = ch.avg;
+      }
+
+      opts.sort((a, b) => {
+        const byAverage = (b.avg || 0) - (a.avg || 0);
+        if (byAverage) return byAverage;
+        const byChance = (b.p || 0) - (a.p || 0);
+        if (byChance) return byChance;
+        const packA = a.kind === "discard" ? (a.analysis && a.analysis.keepPack) || 0 : a.ceil || 0;
+        const packB = b.kind === "discard" ? (b.analysis && b.analysis.keepPack) || 0 : b.ceil || 0;
+        return packB - packA;
+      });
+      const cardChances = cardChancesFrom(actions);
+      const best = opts[0];
+
+      if (best.kind === "play") {
+        return {
+          kind: "play",
+          combo: best.combo,
+          keys: best.combo.keys,
+          p: best.p,
+          pSilver: best.pSilver,
+          pGold: best.pGold,
+          avg: best.avg,
+          cardChances,
+          title: tr("playTitle", { label: best.combo.label, score: best.combo.score }),
+          why: playWhy(best.combo, best.newScore, best.pot, goal, best.p, best.avg)
+        };
+      }
+
+      return {
+        kind: "discard",
+        card: best.card,
+        keys: [best.card.key],
+        p: best.p,
+        pSilver: best.pSilver,
+        pGold: best.pGold,
+        avg: best.avg,
+        cardChances,
+        title: tr("discardTitle", { card: cardLabel(best.card) }),
+        why: discardWhy(best, opts, actions, goal)
+      };
+    }
+
+    function playWhy(combo, newScore, pot, goal, p, avg) {
+      const bits = [];
+      if (combo.sameColor) bits.push(tr("sameSequenceWhy"));
+      else if (combo.type === "group") bits.push(tr("groupWhy"));
+      else bits.push(tr("mixedSequenceWhy"));
+      if (goal === SILVER && newScore >= SILVER) bits.push(tr("reachesSilver"));
+      else if (goal === GOLD && newScore >= GOLD) bits.push(tr("reachesGold"));
+      else if (goal && newScore < goal) {
+        bits.push(tr("scoreRemaining", {
+          score: newScore,
+          missing: goal - newScore,
+          goal: goal === SILVER ? tr("silver") : tr("gold")
+        }));
+      }
+      if (p != null && goal) bits.push(tr("goalChance", { pct: Math.round(p * 100) }));
+      if (avg != null) bits.push(tr("averageFinal", { avg: Math.round(avg) }));
+      if (pot) bits.push(tr("ceiling", { points: newScore + pot }));
+      return bits.join(" ");
+    }
+
+    function discardWhy(best, opts, allActions, goal) {
+      const bits = [];
+      const goalName = goal === SILVER ? tr("silverPhrase") : goal === GOLD ? tr("goldPhrase") : "";
+      if (goal && best.p != null) {
+        bits.push(tr("discardBest", {
+          avg: Math.round(best.avg || 0),
+          pct: Math.round(best.p * 100),
+          goal: goalName
+        }));
+      }
+      const high = ((best.analysis && best.analysis.keptSeqs) || []).filter(s => s.score >= 70).slice(0, 3);
+      if (high.length) {
+        bits.push(tr("canStillBuild", {
+          combos: high.map(s => s.label + " (" + s.score + " pts)").join(", ")
+        }));
+      }
+
+      const bricks = allActions.filter(a => a.kind === "discard" && a.brick && a.card.key !== best.card.key);
+      if (bricks.length && goal) {
+        const names = bricks.map(a => cardLabel(a.card)).join(", ");
+        bits.push(tr("blocksGoal", { cards: names, goal }));
+      }
+
+      const worse = opts.find(a => a.kind === "discard" && a.card.key !== best.card.key && (a.p == null || a.p + 0.02 < best.p));
+      if (worse && goal) {
+        bits.push(tr("lowersChance", {
+          card: cardLabel(worse.card),
+          pct: Math.round((worse.p || 0) * 100)
+        }));
+      }
+
+      const needs = (best.analysis && best.analysis.runNeeds) || [];
+      if (needs.length) {
+        const names = needs
+          .map(n => cardLabel(n) + " (" + n.score + " pts)")
+          .join(tr("or"));
+        bits.push(tr("pairNeed", { cards: names }));
+      }
+
+      if (!bits.length) bits.push(tr("leastDamage"));
+      return bits.join(" ");
+    }
+
+    function hash32(text) {
+      let h = 2166136261;
+      for (let i = 0; i < text.length; i++) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function makeRolloutSeeds(n, stateKey) {
+      const base = hash32(stateKey);
+      const seeds = [];
+      for (let i = 0; i < n; i++) {
+        seeds.push({ base, index: i });
+      }
+      return seeds;
+    }
+
+    function mix32(value) {
+      let x = value >>> 0;
+      x ^= x >>> 16;
+      x = Math.imul(x, 2246822507);
+      x ^= x >>> 13;
+      x = Math.imul(x, 3266489909);
+      x ^= x >>> 16;
+      return x >>> 0;
+    }
+
+    function orderedDeck(cards, scenario) {
+      if (!cards.length) return [];
+      const canonical = cards.slice().sort((a, b) => a.key.localeCompare(b.key));
+      const firstDraw = canonical[scenario.index % canonical.length];
+      const seed = mix32(scenario.base ^ Math.imul(scenario.index + 1, 2654435761));
+      const ordered = canonical.filter(card => card.key !== firstDraw.key).sort((a, b) => {
+        const av = mix32(seed ^ hash32(a.key));
+        const bv = mix32(seed ^ hash32(b.key));
+        return av - bv || a.key.localeCompare(b.key);
+      });
+      ordered.push(firstDraw);
+      return ordered;
+    }
+
+    function simAction(hand, deck, sc) {
+      const goal = currentGoal(sc);
+      const pool = hand.concat(deck);
+      const goodEnough = !goal || sc + optimisticGood(pool) >= goal;
+      let bestPlay = null;
+
+      for (const combo of findCombos(hand)) {
+        const after = withoutKeys(pool, combo.keys);
+        const newSc = sc + combo.score;
+        const ceil = newSc + maxPoints(after);
+        if (goal && newSc < goal && ceil < goal) continue;
+        const mixed = combo.type === "seq" && !combo.sameColor;
+        if (mixed && target === GOLD && goodEnough && !(goal && newSc >= goal) && comboDestroysColorSeq(combo, pool)) continue;
+        let v = ceil * 10 + combo.score;
+        if (goal && newSc >= goal) v += 1000000;
+        if (mixed && goodEnough && !(goal && newSc >= goal)) v -= 250;
+        if (!bestPlay || v > bestPlay.v) bestPlay = { kind: "play", combo, v };
+      }
+
+      if (bestPlay && (bestPlay.combo.sameColor || bestPlay.combo.type === "group")) return bestPlay;
+      if (bestPlay && bestPlay.v >= 1000000) return bestPlay;
+
+      if (hand.length < 5 && deck.length) return { kind: "wait" };
+      if (!hand.length) return null;
+
+      let bestDiscard = null;
+      if (hand.length === 5 || !deck.length) {
+        for (const card of hand) {
+          const rest = hand.filter(c => c.key !== card.key);
+          const after = withoutKeys(pool, [card.key]);
+          const ceil = sc + maxPoints(after);
+          if (goal && sc < goal && ceil < goal) continue;
+          const outs = colorRunNeeds(rest, deck);
+          const seed = seededComboValue(rest, after).total;
+          const pack = optimisticGood(after);
+          const v = pack * 4 + seed * 2 + pairValueFromNeeds(outs);
+          if (!bestDiscard || v > bestDiscard.v) bestDiscard = { kind: "discard", card, v };
+        }
+        if (!bestDiscard) {
+          let worst = hand[0];
+          let worstCeil = Infinity;
+          for (const card of hand) {
+            const ceil = sc + maxPoints(withoutKeys(pool, [card.key]));
+            if (ceil < worstCeil) {
+              worstCeil = ceil;
+              worst = card;
+            }
+          }
+          bestDiscard = { kind: "discard", card: worst, v: -1 };
+        }
+      }
+
+      if (bestPlay && (!bestDiscard || bestPlay.v >= bestDiscard.v)) return bestPlay;
+      if (bestDiscard) return bestDiscard;
+      return { kind: "wait" };
+    }
+
+    function simulateRestFrom(startHand, usedSet, startScore, seed) {
+      let hand = startHand.slice();
+      const blocked = new Set(usedSet);
+      startHand.forEach(c => blocked.add(c.key));
+      let deck = orderedDeck(ALL.filter(c => !blocked.has(c.key)), seed);
+      let sc = startScore;
+      for (let step = 0; step < 48; step++) {
+        while (hand.length < 5 && deck.length) hand.push(deck.pop());
+        if (!hand.length) break;
+        const act = simAction(hand, deck, sc);
+        if (!act || act.kind === "wait") {
+          if (!deck.length) {
+            const left = findCombos(hand);
+            let played = false;
+            const goal = currentGoal(sc);
+            for (const combo of left) {
+              const after = withoutKeys(hand, combo.keys);
+              const ceil = sc + combo.score + maxPoints(after.concat(deck));
+              if (goal && sc < goal && sc + combo.score < goal && ceil < goal) continue;
+              if (combo.sameColor || combo.type === "group" || !deck.length || (goal && sc + optimisticGood(hand.concat(deck)) < goal)) {
+                sc += combo.score;
+                const keys = new Set(combo.keys);
+                hand = hand.filter(c => !keys.has(c.key));
+                played = true;
+                break;
+              }
+            }
+            if (!played) break;
+            continue;
+          }
+          continue;
+        }
+        if (act.kind === "play") {
+          sc += act.combo.score;
+          const keys = new Set(act.combo.keys || act.combo.cards.map(c => c.key));
+          hand = hand.filter(c => !keys.has(c.key));
+        } else {
+          hand = hand.filter(c => c.key !== act.card.key);
+        }
+      }
+      return sc;
+    }
+
+    function simulateRest(seed) {
+      return simulateRestFrom(handCards(), used, score, seed);
+    }
+
+    function chanceFrom(hand, usedSet, sc, goal, seeds) {
+      let targetHits = 0;
+      let silverHits = 0;
+      let goldHits = 0;
+      let sum = 0;
+      for (const seed of seeds) {
+        const final = simulateRestFrom(hand, usedSet, sc, seed);
+        sum += final;
+        if (goal && final >= goal) targetHits++;
+        if (final >= SILVER) silverHits++;
+        if (final >= GOLD) goldHits++;
+      }
+      const count = Math.max(seeds.length, 1);
+      return {
+        p: goal ? targetHits / count : 1,
+        pSilver: silverHits / count,
+        pGold: goldHits / count,
+        avg: sum / count
+      };
+    }
+
+    function exactValue(hand, deck, sc, memo, control) {
+      control.nodes++;
+      if ((control.nodes & 2047) === 0 && performance.now() > control.deadline) {
+        throw new Error("exact-timeout");
+      }
+
+      const key =
+        sc + "|" +
+        hand.map(c => c.key).sort().join(",") + "|" +
+        deck.map(c => c.key).sort().join(",");
+      if (memo.has(key)) return memo.get(key);
+
+      let result;
+      if (hand.length < 5 && deck.length) {
+        let p = 0;
+        let pSilver = 0;
+        let pGold = 0;
+        let avg = 0;
+        for (let i = 0; i < deck.length; i++) {
+          const draw = deck[i];
+          const nextDeck = deck.slice(0, i).concat(deck.slice(i + 1));
+          const value = exactValue(hand.concat([draw]), nextDeck, sc, memo, control);
+          p += value.p;
+          pSilver += value.pSilver;
+          pGold += value.pGold;
+          avg += value.avg;
+        }
+        result = {
+          p: p / deck.length,
+          pSilver: pSilver / deck.length,
+          pGold: pGold / deck.length,
+          avg: avg / deck.length
+        };
+      } else {
+        const choices = [];
+        for (const combo of findCombos(hand)) {
+          choices.push(
+            exactValue(
+              withoutKeys(hand, combo.keys),
+              deck,
+              sc + combo.score,
+              memo,
+              control
+            )
+          );
+        }
+        if (hand.length === 5 && deck.length) {
+          for (const card of hand) {
+            choices.push(
+              exactValue(
+                hand.filter(c => c.key !== card.key),
+                deck,
+                sc,
+                memo,
+                control
+              )
+            );
+          }
+        }
+        if (!choices.length) {
+          result = {
+            p: sc >= target ? 1 : 0,
+            pSilver: sc >= SILVER ? 1 : 0,
+            pGold: sc >= GOLD ? 1 : 0,
+            avg: sc
+          };
+        } else {
+          choices.sort((a, b) => (b.avg - a.avg) || (b.p - a.p));
+          result = choices[0];
+        }
+      }
+      memo.set(key, result);
+      return result;
+    }
+
+    function exactAdvice(deadlineMs) {
+      const cards = handCards();
+      const deck = ALL.filter(c => !used.has(c.key) && handKeys().indexOf(c.key) < 0);
+      const goal = currentGoal(score);
+      const pool = remainingCards();
+      const memo = new Map();
+      const control = { nodes: 0, deadline: performance.now() + deadlineMs };
+      const actions = [];
+
+      for (const combo of findCombos(cards)) {
+        const value = exactValue(
+          withoutKeys(cards, combo.keys),
+          deck,
+          score + combo.score,
+          memo,
+          control
+        );
+        actions.push({
+          kind: "play",
+          combo,
+          keys: combo.keys,
+          newScore: score + combo.score,
+          pot: maxPoints(withoutKeys(pool, combo.keys)),
+          ceil: score + combo.score + maxPoints(withoutKeys(pool, combo.keys)),
+          p: value.p,
+          pSilver: value.pSilver,
+          pGold: value.pGold,
+          avg: value.avg,
+          brick: false,
+          reach: goal && score + combo.score >= goal
+        });
+      }
+
+      for (const card of cards) {
+        const afterHand = cards.filter(c => c.key !== card.key);
+        const value = exactValue(afterHand, deck, score, memo, control);
+        actions.push({
+          kind: "discard",
+          card,
+          keys: [card.key],
+          p: value.p,
+          pSilver: value.pSilver,
+          pGold: value.pGold,
+          avg: value.avg,
+          ceil: score + maxPoints(withoutKeys(pool, [card.key])),
+          brick: value.p === 0,
+          analysis: evaluateDiscard(card, cards, pool, false)
+        });
+      }
+
+      actions.sort((a, b) => {
+        const byAverage = b.avg - a.avg;
+        if (byAverage) return byAverage;
+        const byChance = b.p - a.p;
+        if (byChance) return byChance;
+        const packA = a.kind === "discard" ? a.analysis.keepPack : a.ceil;
+        const packB = b.kind === "discard" ? b.analysis.keepPack : b.ceil;
+        return packB - packA;
+      });
+      const best = actions[0];
+      const cardChances = {};
+      for (const action of actions) {
+        if (action.kind === "discard") cardChances[action.card.key] = Math.round(action.p * 100);
+      }
+
+      if (best.kind === "play") {
+        return {
+          kind: "play",
+          combo: best.combo,
+          keys: best.keys,
+          p: best.p,
+          pSilver: best.pSilver,
+          pGold: best.pGold,
+          avg: best.avg,
+          cardChances,
+          title: tr("playTitle", { label: best.combo.label, score: best.combo.score }),
+          why: playWhy(best.combo, best.newScore, best.pot, goal, best.p, best.avg),
+          exact: true,
+          samples: 0,
+          nodes: control.nodes
+        };
+      }
+      return {
+        kind: "discard",
+        card: best.card,
+        keys: best.keys,
+        p: best.p,
+        pSilver: best.pSilver,
+        pGold: best.pGold,
+        avg: best.avg,
+        cardChances,
+        title: tr("discardTitle", { card: cardLabel(best.card) }),
+        why: discardWhy(best, actions, actions, goal),
+        exact: true,
+        samples: 0,
+        nodes: control.nodes
+      };
+    }
+
+    function chanceWorkerOnMessage(event) {
+      const state = event.data;
+      slots = state.slots.slice();
+      used = new Set(state.used);
+      score = state.score;
+      target = state.target;
+      language = state.language;
+      maxCache.clear();
+
+      const deckCount = 24 - used.size - slots.filter(Boolean).length;
+      if (deckCount <= 8) {
+        try {
+          const exact = exactAdvice(1500);
+          self.postMessage({ key: state.key, advice: exact, done: true });
+          return;
+        } catch (error) {
+          if (!error || error.message !== "exact-timeout") throw error;
+        }
+      }
+
+      analysisSamples = 512;
+      const result = advisePlay();
+      result.exact = false;
+      result.samples = analysisSamples;
+      self.postMessage({ key: state.key, advice: result, done: true });
+    }
+
+    function createChanceWorker() {
+      const declarations = [
+        'const COLORS = ' + JSON.stringify(COLORS) + ';',
+        'const I18N = ' + JSON.stringify(I18N) + ';',
+        'const SILVER = ' + SILVER + ';',
+        'const GOLD = ' + GOLD + ';',
+        'const ALL = ' + JSON.stringify(ALL) + ';',
+        'let language = ' + JSON.stringify(language) + ';',
+        'let slots = [null, null, null, null, null];',
+        'let used = new Set();',
+        'let score = 0;',
+        'let target = SILVER;',
+        'let analysisSamples = 512;',
+        'const maxCache = new Map();'
+      ];
+      const functions = [
+        tr, colorName, cardLabel, groupScore, seqScore, cardByKey, handKeys, handCards, remainingCards, hasCard,
+        classify, findCombos, keepValue, comboPlayValue, bestComboIn, drawPile,
+        colorRunNeeds, pairValueFromNeeds, seededComboValue,
+        evaluateDiscard, goodCombosFrom, takeGreedyGood, optimisticGood, poolKey,
+        maxPointsExact, maxPoints, currentGoal, withoutKeys, comboDestroysColorSeq,
+        advisePlay, playWhy, discardWhy, hash32, makeRolloutSeeds, mix32, orderedDeck,
+        simAction, simulateRestFrom, chanceFrom, exactValue, exactAdvice
+      ];
+      const source =
+        declarations.join("\n") + "\n" +
+        functions.map(fn => fn.toString()).join("\n") + "\n" +
+        "self.onmessage = " + chanceWorkerOnMessage.toString() + ";";
+      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+      const worker = new Worker(url);
+      URL.revokeObjectURL(url);
+      return worker;
+    }
+
+    function nextGoal() {
+      if (score >= target) return null;
+      if (target === SILVER) return { pts: SILVER, name: tr("silver"), left: "75%" };
+      return { pts: GOLD, name: tr("gold"), left: "100%" };
+    }
+
+    function chanceStateKey() {
+      return language + "|" + target + "|" + score + "|" + handKeys().sort().join(",") + "|" + [...used].sort().join(",");
+    }
+
+    let chanceCacheKey = "";
+    let chanceCacheVal = null;
+    const adviceCache = new Map();
+    let activeChanceWorker = null;
+
+    function estimateChance() {
+      const key = chanceStateKey();
+      if (chanceCacheKey === key) return chanceCacheVal;
+      const leftover = remainingCards();
+      const max = score + maxPoints(leftover);
+      const n = 160;
+      const seeds = makeRolloutSeeds(n, key);
+      let silverHits = 0;
+      let goldHits = 0;
+      let sum = 0;
+      for (const seed of seeds) {
+        const final = simulateRest(seed);
+        sum += final;
+        if (final >= SILVER) silverHits++;
+        if (final >= GOLD) goldHits++;
+      }
+      const result = {
+        silverPct: Math.round((silverHits / n) * 100),
+        goldPct: Math.round((goldHits / n) * 100),
+        avg: Math.round(sum / n),
+        max
+      };
+      chanceCacheKey = key;
+      chanceCacheVal = result;
+      return result;
+    }
+
+    function snapshot() {
+      return { slots: slots.slice(), used: [...used], score };
+    }
+
+    function pushHistory() {
+      history = history.slice(0, histPos + 1);
+      history.push(snapshot());
+      histPos++;
+    }
+
+    function loadHist(pos) {
+      const h = history[pos];
+      slots = h.slots.slice();
+      used = new Set(h.used);
+      score = h.score;
+      histPos = pos;
+      render();
+    }
+
+    function firstEmptySlot() {
+      return slots.findIndex(s => !s);
+    }
+
+    function slotIndexOf(key) {
+      return slots.indexOf(key);
+    }
+
+    function placeInSlot(index, key) {
+      if (!key || used.has(key)) return;
+      const from = slotIndexOf(key);
+      const occupant = slots[index];
+      if (from === index) return;
+      if (from >= 0) {
+        slots[from] = occupant;
+        slots[index] = key;
+      } else {
+        slots[index] = key;
+      }
+      pushHistory();
+      render();
+    }
+
+    function returnToPool(key) {
+      const i = slotIndexOf(key);
+      if (i < 0) return;
+      slots[i] = null;
+      pushHistory();
+      render();
+    }
+
+    function playCombo() {
+      if (!advice || advice.kind !== "play") return;
+      score += advice.combo.score;
+      for (const key of advice.keys) {
+        const i = slotIndexOf(key);
+        if (i >= 0) slots[i] = null;
+        used.add(key);
+      }
+      pushHistory();
+      render();
+    }
+
+    function discardCard(key) {
+      const i = slotIndexOf(key);
+      if (i < 0) return;
+      slots[i] = null;
+      used.add(key);
+      pushHistory();
+      render();
+    }
+
+    function makeCardEl(card, opts) {
+      const el = document.createElement("div");
+      el.className = "card " + card.color;
+      el.textContent = card.rank;
+      el.dataset.key = card.key;
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", cardLabel(card));
+      if (opts.play) {
+        el.classList.add("play");
+        const tag = document.createElement("div");
+        tag.className = "tag";
+        tag.textContent = tr("play");
+        el.appendChild(tag);
+      }
+      if (opts.discard) {
+        el.classList.add("discard");
+        const tag = document.createElement("div");
+        tag.className = "tag";
+        tag.textContent = tr("discard");
+        el.appendChild(tag);
+      }
+      if (opts.pct != null) {
+        const pct = document.createElement("div");
+        pct.className = "pct" + (opts.pctBest ? " best" : opts.pct === 0 ? " zero" : "");
+        pct.textContent = opts.pct + "%";
+        el.appendChild(pct);
+      }
+      if (opts.used) el.classList.add("used");
+      if (opts.inHand) el.classList.add("in-hand");
+      return el;
+    }
+
+    function bindDrag(el, key, fromSlot) {
+      el.draggable = true;
+      el.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", key);
+        e.dataTransfer.setData("from-slot", fromSlot ? "1" : "0");
+        e.dataTransfer.effectAllowed = "move";
+      });
+    }
+
+    function renderHand() {
+      const playKeys = new Set(advice && advice.kind === "play" ? advice.keys : []);
+      const discardKeys = new Set(advice && advice.kind === "discard" ? advice.keys : []);
+      const chances = (advice && advice.cardChances) || {};
+      let bestPct = -1;
+      for (const key of Object.keys(chances)) {
+        if (chances[key] > bestPct) bestPct = chances[key];
+      }
+      const root = document.getElementById("hand");
+      root.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.dataset.index = String(i);
+        slot.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          slot.classList.add("over");
+        });
+        slot.addEventListener("dragleave", () => slot.classList.remove("over"));
+        slot.addEventListener("drop", (e) => {
+          e.preventDefault();
+          slot.classList.remove("over");
+          placeInSlot(i, e.dataTransfer.getData("text/plain"));
+        });
+        const key = slots[i];
+        if (key) {
+          const card = cardByKey(key);
+          const pct = chances[key];
+          const el = makeCardEl(card, {
+            play: playKeys.has(key),
+            discard: discardKeys.has(key),
+            pct: pct,
+            pctBest: pct != null && pct === bestPct && bestPct > 0
+          });
+          bindDrag(el, key, true);
+          el.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (advice && advice.kind === "play") playCombo();
+          });
+          el.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            if (handKeys().length < 5) returnToPool(key);
+            else discardCard(key);
+          });
+          slot.appendChild(el);
+        }
+        root.appendChild(slot);
+      }
+    }
+
+    function renderBoard() {
+      const inHand = new Set(handKeys());
+      const root = document.getElementById("board");
+      root.innerHTML = "";
+      for (const color of COLORS) {
+        for (let rank = 1; rank <= 8; rank++) {
+          const key = color + "-" + rank;
+          const card = cardByKey(key);
+          const isUsed = used.has(key);
+          const isHand = inHand.has(key);
+          const el = makeCardEl(card, { used: isUsed, inHand: isHand });
+          if (!isUsed && !isHand) {
+            bindDrag(el, key, false);
+            el.addEventListener("click", () => {
+              const empty = firstEmptySlot();
+              if (empty >= 0) placeInSlot(empty, key);
+            });
+          }
+          if (isHand) {
+            el.addEventListener("click", () => returnToPool(key));
+          }
+          root.appendChild(el);
+        }
+      }
+    }
+
+    function renderAdvice() {
+      const box = document.getElementById("advice");
+      box.className = "advice" +
+        (advice.kind === "play" || advice.kind === "discard" || advice.kind === "gameover" ? " " + advice.kind : "");
+      box.innerHTML = '<div class="title">' + advice.title + '</div><div class="why">' + advice.why + "</div>";
+    }
+
+    function paintChance(ch) {
+      const silverTag = document.getElementById("silverChanceTag");
+      const goldTag = document.getElementById("goldChanceTag");
+      const hint = document.getElementById("chanceHint");
+      const silverPct = Math.max(0, Math.min(100, ch.silverPct || 0));
+      const goldPct = Math.max(0, Math.min(100, ch.goldPct || 0));
+      silverTag.textContent = silverPct + "%";
+      goldTag.textContent = goldPct + "%";
+      hint.textContent = tr("chanceSummaryBoth", {
+        silver: silverPct,
+        gold: goldPct,
+        avg: ch.avg
+      });
+      if (ch.exact) hint.textContent += " · " + tr("exactCalculation");
+      else if (ch.samples) hint.textContent += " · " + tr("scenarios", { count: ch.samples });
+    }
+
+    function paintChancePending() {
+      document.getElementById("silverChanceTag").textContent = "";
+      document.getElementById("goldChanceTag").textContent = "";
+      document.getElementById("chanceHint").textContent = tr("chanceFullHand");
+    }
+
+    function paintChanceCalculating() {
+      document.getElementById("silverChanceTag").textContent = "";
+      document.getElementById("goldChanceTag").textContent = "";
+      document.getElementById("chanceHint").textContent = tr("calculating");
+    }
+
+    let chanceJob = 0;
+
+    function cancelChanceWorker() {
+      if (!activeChanceWorker) return;
+      activeChanceWorker.terminate();
+      activeChanceWorker = null;
+    }
+
+    function resetChance() {
+      cancelChanceWorker();
+      chanceCacheKey = "";
+      chanceCacheVal = null;
+      chanceJob++;
+    }
+
+    function applyLanguage() {
+      document.documentElement.lang = language;
+      document.getElementById("languageSelect").value = language;
+      document.getElementById("languageLabel").textContent = tr("language");
+      document.getElementById("undoBtn").title = tr("undo");
+      document.getElementById("redoBtn").title = tr("redo");
+      document.getElementById("clearBtn").title = tr("clear");
+      document.getElementById("goalGroup").setAttribute("aria-label", tr("goal"));
+      document.getElementById("goalLabel").textContent = tr("goal");
+      document.getElementById("goalSilverBtn").textContent = tr("silver") + " 300";
+      document.getElementById("goalGoldBtn").textContent = tr("gold") + " 400";
+      document.getElementById("silverLabel").innerHTML = tr("silver") + " <b>300</b>";
+      document.getElementById("goldLabel").innerHTML = tr("gold") + " <b>400</b>";
+      document.getElementById("barSilverLabel").textContent = "300 " + tr("silver");
+      document.getElementById("barGoldLabel").textContent = "400 " + tr("gold");
+      document.getElementById("handLabel").textContent = tr("hand");
+      document.getElementById("instructions").textContent = tr("instructions");
+      document.getElementById("legendPlay").textContent = tr("play");
+      document.getElementById("legendDiscard").textContent = tr("discard");
+      document.getElementById("legendUsed").textContent = tr("used");
+      document.getElementById("groupCardsHeader").textContent = tr("cards");
+      document.getElementById("pointsHeader").textContent = tr("points");
+      document.getElementById("sequenceCardsHeader").textContent = tr("cards");
+      document.getElementById("differentColorsHeader").textContent = tr("differentColors");
+      document.getElementById("sameColorHeader").textContent = tr("sameColor");
+    }
+
+    function setLanguage(nextLanguage) {
+      const next = nextLanguage === "en" ? "en" : "pt";
+      if (language === next) return;
+      language = next;
+      localStorage.setItem("okey-helper-language", language);
+      adviceCache.clear();
+      resetChance();
+      applyLanguage();
+      render();
+    }
+
+    function renderGoal() {
+      const silverBtn = document.getElementById("goalSilverBtn");
+      const goldBtn = document.getElementById("goalGoldBtn");
+      silverBtn.classList.toggle("on", target === SILVER);
+      goldBtn.classList.toggle("on", target === GOLD);
+      silverBtn.setAttribute("aria-pressed", target === SILVER ? "true" : "false");
+      goldBtn.setAttribute("aria-pressed", target === GOLD ? "true" : "false");
+      document.getElementById("silverLabel").className =
+        "chest" + (target === SILVER ? " aim" : "") + (score >= SILVER ? " hit" : "");
+      document.getElementById("goldLabel").className =
+        "chest" + (target === GOLD ? " aim" : "") + (score >= GOLD ? " hit" : "");
+      document.querySelector(".mark.silver-mark").classList.toggle("aim", target === SILVER);
+      document.querySelector(".mark.gold-mark").classList.toggle("aim", target === GOLD);
+    }
+
+    function setTarget(pts) {
+      if (target === pts) return;
+      target = pts;
+      resetChance();
+      render();
+    }
+
+    function renderScore() {
+      document.getElementById("scoreLabel").textContent = score;
+      document.getElementById("barFill").style.width = Math.min(100, (score / GOLD) * 100) + "%";
+      renderGoal();
+      const inHand = handKeys().length;
+      const deck = 24 - used.size - inHand;
+      document.getElementById("deckHint").textContent = tr("deckInfo", {
+        deck,
+        used: used.size,
+        hand: inHand
+      });
+
+      if (advice && advice.kind === "gameover") {
+        paintChance({
+          silverPct: score >= SILVER ? 100 : 0,
+          goldPct: score >= GOLD ? 100 : 0,
+          avg: score,
+          max: score + maxPointsExact(remainingCards())
+        });
+        return;
+      }
+
+      if (inHand < 5) {
+        if (chanceCacheVal) paintChance(chanceCacheVal);
+        else paintChancePending();
+        return;
+      }
+      if (!advice || advice.kind === "calculating") {
+        paintChanceCalculating();
+        return;
+      }
+
+      const key = chanceStateKey();
+      if (chanceCacheKey === key && chanceCacheVal) {
+        paintChance(chanceCacheVal);
+        return;
+      }
+      let ch;
+      if (advice && advice.pSilver != null && advice.pGold != null) {
+        ch = {
+          silverPct: Math.round(advice.pSilver * 100),
+          goldPct: Math.round(advice.pGold * 100),
+          avg: Math.round(advice.avg),
+          max: score + maxPoints(remainingCards()),
+          exact: !!advice.exact,
+          samples: advice.samples || 0
+        };
+      } else {
+        ch = estimateChance();
+      }
+      chanceCacheKey = key;
+      chanceCacheVal = ch;
+      paintChance(ch);
+    }
+
+    function comboStillAvailable(a, b, c, color) {
+      const pool = remainingCards();
+      if (a === b && b === c) return COLORS.every(col => hasCard(pool, col, a));
+      if (color === -1) return hasAny(pool, a) && hasAny(pool, b) && hasAny(pool, c);
+      return hasCard(pool, COLORS[color], a) && hasCard(pool, COLORS[color], b) && hasCard(pool, COLORS[color], c);
+    }
+
+    function hasAny(pool, rank) { return pool.some(c => c.rank === rank); }
+
+    function fillTables() {
+      const g = document.getElementById("groupTable");
+      g.innerHTML = "";
+      for (let n = 1; n <= 8; n++) {
+        const on = comboStillAvailable(n, n, n, -1);
+        g.innerHTML += "<tr><td>" + n + "-" + n + "-" + n + "</td><td>" + groupScore(n) + (on ? ' <span class="dot all"></span>' : "") + "</td></tr>";
+      }
+      const s = document.getElementById("seqTable");
+      s.innerHTML = "";
+      for (let n = 1; n <= 6; n++) {
+        const mixed = comboStillAvailable(n, n + 1, n + 2, -1);
+        const dots = COLORS.map((col, i) => comboStillAvailable(n, n + 1, n + 2, i) ? '<span class="dot ' + col + '"></span>' : "").join("");
+        s.innerHTML +=
+          "<tr><td>" + n + "-" + (n + 1) + "-" + (n + 2) + "</td><td>" +
+          seqScore(n, false) + (mixed ? ' <span class="dot all"></span>' : "") +
+          "</td><td>" + seqScore(n, true) + " " + dots + "</td></tr>";
+      }
+    }
+
+    function placeholderAdvice() {
+      const count = handKeys().length;
+      const ending = gameOverReason();
+      if (ending) {
+        return {
+          kind: "gameover",
+          title: tr("gameOverTitle"),
+          why: tr(ending === "noPoints" ? "gameOverNoPointsWhy" : "gameOverWhy")
+        };
+      }
+      if (count === 0) {
+        return {
+          kind: "empty",
+          title: tr("emptyTitle"),
+          why: tr("emptyWhy")
+        };
+      }
+      if (count < 5) {
+        return {
+          kind: "wait",
+          title: tr("completeTitle", { count }),
+          why: tr("completeWhy", { missing: 5 - count })
+        };
+      }
+      return {
+        kind: "calculating",
+        title: tr("calculatingTitle"),
+        why: tr("calculatingWhy")
+      };
+    }
+
+    function applyWorkerAdvice(message) {
+      if (message.key !== chanceStateKey()) return;
+      advice = message.advice;
+      if (message.done) {
+        adviceCache.set(message.key, message.advice);
+        if (activeChanceWorker) activeChanceWorker.terminate();
+        activeChanceWorker = null;
+      }
+      chanceCacheKey = "";
+      chanceCacheVal = null;
+      renderHand();
+      renderAdvice();
+      renderScore();
+    }
+
+    function requestAdviceAnalysis(key) {
+      cancelChanceWorker();
+      try {
+        activeChanceWorker = createChanceWorker();
+      } catch (error) {
+        advice = {
+          kind: "error",
+          title: tr("startError"),
+          why: error && error.message ? error.message : tr("unknownError")
+        };
+        renderAdvice();
+        paintChancePending();
+        return;
+      }
+      activeChanceWorker.onmessage = event => applyWorkerAdvice(event.data);
+      activeChanceWorker.onerror = event => {
+        if (key !== chanceStateKey()) return;
+        advice = {
+          kind: "error",
+          title: tr("analysisError"),
+          why: event.message || tr("interrupted")
+        };
+        activeChanceWorker = null;
+        renderAdvice();
+        paintChancePending();
+      };
+      activeChanceWorker.postMessage({
+        key,
+        slots: handKeys(),
+        used: [...used],
+        score,
+        target,
+        language
+      });
+    }
+
+    function render() {
+      cancelChanceWorker();
+      const key = chanceStateKey();
+      const cached = handKeys().length === 5 ? adviceCache.get(key) : null;
+      advice = cached || placeholderAdvice();
+      renderHand();
+      renderBoard();
+      renderAdvice();
+      renderScore();
+      fillTables();
+      if (handKeys().length === 5 && !cached && advice.kind !== "gameover") requestAdviceAnalysis(key);
+    }
+
+    document.getElementById("board").addEventListener("dragover", (e) => e.preventDefault());
+    document.getElementById("board").addEventListener("drop", (e) => {
+      e.preventDefault();
+      const fromSlot = e.dataTransfer.getData("from-slot") === "1";
+      const key = e.dataTransfer.getData("text/plain");
+      if (fromSlot) returnToPool(key);
+    });
+
+    document.getElementById("undoBtn").addEventListener("click", () => {
+      if (histPos > 0) loadHist(histPos - 1);
+    });
+    document.getElementById("redoBtn").addEventListener("click", () => {
+      if (histPos < history.length - 1) loadHist(histPos + 1);
+    });
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      slots = [null, null, null, null, null];
+      used = new Set();
+      score = 0;
+      resetChance();
+      pushHistory();
+      render();
+    });
+    document.getElementById("goalSilverBtn").addEventListener("click", () => setTarget(SILVER));
+    document.getElementById("goalGoldBtn").addEventListener("click", () => setTarget(GOLD));
+    document.getElementById("languageSelect").addEventListener("change", event => setLanguage(event.target.value));
+
+    applyLanguage();
+    render();
+  </script>
+</body>
+</html>
