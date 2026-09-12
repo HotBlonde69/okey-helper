@@ -186,6 +186,7 @@
       background: var(--slot);
       border-radius: 6px;
       position: relative;
+      overflow: visible;
     }
     .slot.over { outline: 2px solid #f0d060; }
 
@@ -213,8 +214,61 @@
       border-radius: 6px;
       cursor: grab;
     }
-    .slot .card.play { box-shadow: inset 0 0 0 4px var(--play); }
-    .slot .card.discard { box-shadow: inset 0 0 0 4px var(--discard); }
+    .slot .card.play,
+    .slot .card.discard { overflow: visible; }
+    .slot .card.play { box-shadow: inset 0 0 0 3px var(--play); }
+    .slot .card.discard { box-shadow: inset 0 0 0 3px #e03131; }
+    .slot .card.play::before,
+    .slot .card.discard::before {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: 12px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .slot .card.play::before {
+      border: 2px solid rgba(62, 224, 122, 0.45);
+    }
+    .slot .card.play::after {
+      content: "";
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #8fffbf;
+      box-shadow: 0 0 8px 3px #3ee07a;
+      offset-path: inset(-8px round 12px);
+      offset-rotate: 0deg;
+      animation: play-orbit 1.15s linear infinite;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .slot .card.discard::before {
+      border: 3px solid #ff3b3b;
+      box-shadow: 0 0 10px 2px rgba(255, 50, 50, 0.75);
+      animation: discard-pulse 0.95s ease-in-out infinite;
+    }
+    @keyframes play-orbit {
+      to { offset-distance: 100%; }
+    }
+    @keyframes discard-pulse {
+      0%, 100% {
+        opacity: 0.35;
+        transform: scale(0.94);
+        box-shadow: 0 0 4px 0 rgba(255, 50, 50, 0.3);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.08);
+        box-shadow: 0 0 18px 5px rgba(255, 60, 60, 0.9);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .slot .card.play::before,
+      .slot .card.play::after,
+      .slot .card.discard::before { animation: none; }
+    }
     .slot .card .tag {
       position: absolute;
       bottom: 6px;
@@ -555,6 +609,91 @@
     let histPos = 0;
     let advice = null;
     let analysisSamples = 600;
+    let audioCtx = null;
+    let heardChances = { silver100: false, gold100: false, silver0: false, noPoints: false };
+
+    function ensureAudio() {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      if (!audioCtx) audioCtx = new Ctor();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playTone(freq, start, duration, type, volume) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + start + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration + 0.02);
+    }
+
+    function playSfx(kind) {
+      if (kind === "silver") {
+        playTone(784, 0, 0.16, "triangle", 0.14);
+        playTone(988, 0.12, 0.22, "triangle", 0.16);
+        return;
+      }
+      if (kind === "gold") {
+        playTone(659, 0, 0.14, "triangle", 0.12);
+        playTone(831, 0.1, 0.16, "triangle", 0.14);
+        playTone(988, 0.2, 0.18, "triangle", 0.16);
+        playTone(1319, 0.34, 0.32, "sine", 0.18);
+        return;
+      }
+      if (kind === "silver0") {
+        playTone(311, 0, 0.22, "square", 0.06);
+        playTone(233, 0.16, 0.34, "square", 0.05);
+        return;
+      }
+      playTone(196, 0, 0.28, "sawtooth", 0.08);
+      playTone(147, 0.22, 0.34, "sawtooth", 0.07);
+      playTone(110, 0.5, 0.5, "triangle", 0.09);
+    }
+
+    function notifyChanceSounds(ch) {
+      if (!ch || ch.silverPct == null || ch.goldPct == null) return;
+      if (handKeys().length < 5 && !(advice && advice.kind === "gameover")) return;
+      const silverPct = Math.max(0, Math.min(100, ch.silverPct));
+      const goldPct = Math.max(0, Math.min(100, ch.goldPct));
+      const noPoints = gameOverReason() === "noPoints";
+
+      if (silverPct >= 100) {
+        if (!heardChances.silver100) playSfx("silver");
+        heardChances.silver100 = true;
+      } else {
+        heardChances.silver100 = false;
+      }
+
+      if (goldPct >= 100) {
+        if (!heardChances.gold100) playSfx("gold");
+        heardChances.gold100 = true;
+      } else {
+        heardChances.gold100 = false;
+      }
+
+      if (silverPct === 0 && !noPoints) {
+        if (!heardChances.silver0) playSfx("silver0");
+        heardChances.silver0 = true;
+      } else if (silverPct > 0) {
+        heardChances.silver0 = false;
+      }
+
+      if (noPoints) {
+        if (!heardChances.noPoints) playSfx("noPoints");
+        heardChances.noPoints = true;
+      } else {
+        heardChances.noPoints = false;
+      }
+    }
 
     function groupScore(n) { return 10 * n + 10; }
     function seqScore(min, same) { return (same ? 40 : 0) + 10 * min; }
@@ -904,7 +1043,7 @@
       return combo.cards.some(card => keepValue(card, pool) >= 50);
     }
 
-    function advisePlay() {
+    async function advisePlay() {
       const cards = handCards();
       if (cards.length === 0) {
         return {
@@ -976,7 +1115,7 @@
 
       for (const a of actions) {
         if (a.kind !== "discard") continue;
-        const ch = chanceFrom(a.afterHand, a.afterUsed, score, goal, rolloutSeeds);
+        const ch = await sampleChances(a.afterHand, a.afterUsed, score, goal, rolloutSeeds);
         a.p = ch.p;
         a.pSilver = ch.pSilver;
         a.pGold = ch.pGold;
@@ -1009,7 +1148,7 @@
         const afterHand = cards.filter(c => best.combo.keys.indexOf(c.key) < 0);
         const afterUsed = new Set(used);
         best.combo.keys.forEach(k => afterUsed.add(k));
-        const ch = chanceFrom(afterHand, afterUsed, best.newScore, goal, rolloutSeeds);
+        const ch = await sampleChances(afterHand, afterUsed, best.newScore, goal, rolloutSeeds);
         return {
           kind: "play",
           combo: best.combo,
@@ -1029,7 +1168,7 @@
         const afterHand = cards.filter(c => a.combo.keys.indexOf(c.key) < 0);
         const afterUsed = new Set(used);
         a.combo.keys.forEach(k => afterUsed.add(k));
-        const ch = chanceFrom(afterHand, afterUsed, a.newScore, goal, rolloutSeeds);
+        const ch = await sampleChances(afterHand, afterUsed, a.newScore, goal, rolloutSeeds);
         a.p = ch.p;
         a.pSilver = ch.pSilver;
         a.pGold = ch.pGold;
@@ -1307,6 +1446,35 @@
       };
     }
 
+    async function chanceFromAsync(hand, usedSet, sc, goal, seeds) {
+      let targetHits = 0;
+      let silverHits = 0;
+      let goldHits = 0;
+      let sum = 0;
+      const job = chanceJob;
+      for (let i = 0; i < seeds.length; i++) {
+        if (job !== chanceJob) throw new Error("cancelled");
+        const final = simulateRestFrom(hand, usedSet, sc, seeds[i]);
+        sum += final;
+        if (goal && final >= goal) targetHits++;
+        if (final >= SILVER) silverHits++;
+        if (final >= GOLD) goldHits++;
+        if ((i & 15) === 15) await sleep(0);
+      }
+      const count = Math.max(seeds.length, 1);
+      return {
+        p: goal ? targetHits / count : 1,
+        pSilver: silverHits / count,
+        pGold: goldHits / count,
+        avg: sum / count
+      };
+    }
+
+    function sampleChances(hand, usedSet, sc, goal, seeds) {
+      if (typeof window !== "undefined") return chanceFromAsync(hand, usedSet, sc, goal, seeds);
+      return chanceFrom(hand, usedSet, sc, goal, seeds);
+    }
+
     function exactValue(hand, deck, sc, memo, control) {
       control.nodes++;
       if ((control.nodes & 2047) === 0 && performance.now() > control.deadline) {
@@ -1499,7 +1667,7 @@
       language = state.language;
     }
 
-    function computeAdvice() {
+    async function computeAdvice() {
       const deckCount = 24 - used.size - slots.filter(Boolean).length;
       if (deckCount <= 8) {
         try {
@@ -1509,13 +1677,13 @@
         }
       }
       analysisSamples = 512;
-      const result = advisePlay();
+      const result = await advisePlay();
       result.exact = false;
       result.samples = analysisSamples;
       return result;
     }
 
-    function refineAdvice(action) {
+    async function refineAdvice(action) {
       const cards = handCards();
       const goal = currentGoal(score);
       analysisSamples = 512;
@@ -1527,17 +1695,17 @@
       for (const card of cards) {
         const afterUsed = new Set(used);
         afterUsed.add(card.key);
-        const ch = chanceFrom(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
+        const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
         cardChances[card.key] = Math.round(ch.p * 100);
       }
       if (action.kind === "play" && action.keys) {
         const combo = findCombos(cards).find(item =>
           item.keys.length === action.keys.length && action.keys.every(key => item.keys.indexOf(key) >= 0)
         );
-        if (!combo) return computeAdvice();
+        if (!combo) return await computeAdvice();
         const afterUsed = new Set(used);
         combo.keys.forEach(key => afterUsed.add(key));
-        const ch = chanceFrom(cards.filter(c => combo.keys.indexOf(c.key) < 0), afterUsed, score + combo.score, goal, rolloutSeeds);
+        const ch = await sampleChances(cards.filter(c => combo.keys.indexOf(c.key) < 0), afterUsed, score + combo.score, goal, rolloutSeeds);
         return {
           kind: "play",
           combo,
@@ -1554,10 +1722,10 @@
         };
       }
       const card = action.card || cardByKey((action.keys || [])[0]);
-      if (!card) return computeAdvice();
+      if (!card) return await computeAdvice();
       const afterUsed = new Set(used);
       afterUsed.add(card.key);
-      const ch = chanceFrom(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
+      const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
       const pool = remainingCards();
       const desperate = goal && score + optimisticGood(pool) < goal;
       const best = {
@@ -1587,6 +1755,12 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function afterNextPaint() {
+      return new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
+    }
+
     async function runPrefetch(jobs, token) {
       const started = performance.now();
       for (let i = 0; i < jobs.length; i++) {
@@ -1602,7 +1776,7 @@
           continue;
         }
         applyWorkerState(job);
-        const advice = computeAdvice();
+        const advice = await computeAdvice();
         if (token !== prefetchGen) return;
         cacheSet(workerAdviceCache, job.key, advice, ADVICE_CACHE_LIMIT);
         self.postMessage({ type: "prefetch", key: job.key, advice, done: true });
@@ -1639,10 +1813,11 @@
       if (msg.type === "refine") {
         const token = ++analyzeGen;
         applyWorkerState(msg);
-        const advice = refineAdvice(msg.action);
-        if (token !== analyzeGen) return;
-        cacheSet(workerAdviceCache, msg.key, advice, ADVICE_CACHE_LIMIT);
-        self.postMessage({ type: "refine", key: msg.key, advice, done: true });
+        Promise.resolve(refineAdvice(msg.action)).then(advice => {
+          if (token !== analyzeGen) return;
+          cacheSet(workerAdviceCache, msg.key, advice, ADVICE_CACHE_LIMIT);
+          self.postMessage({ type: "refine", key: msg.key, advice, done: true });
+        });
         return;
       }
       if (msg.type === "analyze") {
@@ -1653,10 +1828,11 @@
           return;
         }
         applyWorkerState(msg);
-        const advice = computeAdvice();
-        if (token !== analyzeGen) return;
-        cacheSet(workerAdviceCache, msg.key, advice, ADVICE_CACHE_LIMIT);
-        self.postMessage({ type: "analyze", key: msg.key, advice, done: true });
+        Promise.resolve(computeAdvice()).then(advice => {
+          if (token !== analyzeGen) return;
+          cacheSet(workerAdviceCache, msg.key, advice, ADVICE_CACHE_LIMIT);
+          self.postMessage({ type: "analyze", key: msg.key, advice, done: true });
+        });
         return;
       }
       if (msg.type === "prefetch") {
@@ -1693,7 +1869,7 @@
         evaluateDiscard, goodCombosFrom, takeGreedyGood, optimisticGood, poolKey,
         maxPointsExact, maxPoints, currentGoal, withoutKeys, comboDestroysColorSeq,
         advisePlay, playWhy, discardWhy, hash32, makeRolloutSeeds, mix32, orderedDeck,
-        simAction, simulateRestFrom, chanceFrom, exactValue, exactAdvice,
+        simAction, simulateRestFrom, chanceFrom, sampleChances, exactValue, exactAdvice,
         cacheSet, applyWorkerState, computeAdvice, refineAdvice, sleep, runPrefetch
       ];
       const source =
@@ -1913,6 +2089,8 @@
         if (i >= 0) slots[i] = null;
         used.add(key);
       }
+      chanceCacheKey = "";
+      chanceCacheVal = null;
       pushHistory();
       render();
     }
@@ -1922,6 +2100,8 @@
       if (i < 0) return;
       slots[i] = null;
       used.add(key);
+      chanceCacheKey = "";
+      chanceCacheVal = null;
       pushHistory();
       render();
     }
@@ -1929,6 +2109,7 @@
     function makeCardEl(card, opts) {
       const el = document.createElement("div");
       el.className = "card " + card.color;
+      el.dataset.key = card.key;
       el.textContent = card.rank;
       el.dataset.key = card.key;
       el.setAttribute("role", "button");
@@ -2066,6 +2247,7 @@
       if (ch.exact) hint.textContent += " · " + tr("exactCalculation");
       else if (ch.fromOpeningBook) hint.textContent += " · " + tr("openingBook") + (ch.samples ? " · " + tr("scenarios", { count: ch.samples }) : "");
       else if (ch.samples) hint.textContent += " · " + tr("scenarios", { count: ch.samples });
+      notifyChanceSounds({ silverPct: silverPct, goldPct: goldPct });
     }
 
     function paintChancePending() {
@@ -2124,6 +2306,7 @@
       adviceCache.clear();
       lastPrefetchKey = "";
       chanceJob++;
+      heardChances = { silver100: false, gold100: false, silver0: false, noPoints: false };
     }
 
     function applyLanguage() {
@@ -2362,15 +2545,41 @@
       }));
     }
 
+    function paintExistingHandPcts() {
+      const chances = (advice && advice.cardChances) || {};
+      let bestPct = -1;
+      Object.keys(chances).forEach(key => {
+        if (chances[key] > bestPct) bestPct = chances[key];
+      });
+      document.querySelectorAll("#hand .card[data-key]").forEach(el => {
+        const key = el.dataset.key;
+        let pctEl = el.querySelector(".pct");
+        if (chances[key] == null) {
+          if (pctEl) pctEl.remove();
+          return;
+        }
+        if (!pctEl) {
+          pctEl = document.createElement("div");
+          el.appendChild(pctEl);
+        }
+        pctEl.className = "pct" + (chances[key] === bestPct && bestPct > 0 ? " best" : chances[key] === 0 ? " zero" : "");
+        pctEl.textContent = chances[key] + "%";
+      });
+    }
+
     function applyWorkerAdvice(message) {
       if (message.advice) cacheSet(adviceCache, message.key, message.advice, ADVICE_CACHE_LIMIT);
       if (message.key !== chanceStateKey()) return;
       if (handKeys().length < 5) return;
+      const reuseHand = message.type === "refine" && advice && message.advice &&
+        advice.kind === message.advice.kind &&
+        (advice.keys || []).slice().sort().join(",") === (message.advice.keys || []).slice().sort().join(",");
       advice = message.advice;
       if (message.type === "analyze" || message.type === "refine") inFlightKey = null;
       chanceCacheKey = "";
       chanceCacheVal = null;
-      renderHand();
+      if (reuseHand) paintExistingHandPcts();
+      else renderHand();
       renderAdvice();
       renderScore();
       if ((message.type === "analyze" || message.type === "refine") && message.done) schedulePrefetchFromAdvice(message.advice);
@@ -2382,7 +2591,7 @@
       await sleep(0);
       if (job !== chanceJob || chanceStateKey() !== key) return;
       try {
-        const result = computeAdvice();
+        const result = await computeAdvice();
         if (job !== chanceJob || chanceStateKey() !== key) return;
         applyWorkerAdvice({ type: "analyze", key: key, advice: result, done: true });
       } catch (error) {
@@ -2398,8 +2607,11 @@
       }
     }
 
-    function requestAdviceRefine(key, action) {
+    async function requestAdviceRefine(key, action) {
       if (inFlightKey === key) return;
+      inFlightKey = key;
+      await afterNextPaint();
+      if (chanceStateKey() !== key) return;
       const payload = {
         kind: action.kind,
         keys: action.keys || [],
@@ -2410,7 +2622,6 @@
         runMainThreadRefine(key, payload);
         return;
       }
-      inFlightKey = key;
       worker.postMessage({
         type: "refine",
         key,
@@ -2429,7 +2640,7 @@
       await sleep(0);
       if (job !== chanceJob || chanceStateKey() !== key) return;
       try {
-        const result = refineAdvice(action);
+        const result = await refineAdvice(action);
         if (job !== chanceJob || chanceStateKey() !== key) return;
         applyWorkerAdvice({ type: "refine", key: key, advice: result, done: true });
       } catch (error) {
@@ -2438,14 +2649,16 @@
       }
     }
 
-    function requestAdviceAnalysis(key) {
+    async function requestAdviceAnalysis(key) {
       if (inFlightKey === key) return;
+      inFlightKey = key;
+      await afterNextPaint();
+      if (chanceStateKey() !== key) return;
       const worker = ensureChanceWorker();
       if (!worker) {
         runMainThreadAdvice(key);
         return;
       }
-      inFlightKey = key;
       worker.postMessage({
         type: "analyze",
         key,
@@ -2504,6 +2717,7 @@
       pushHistory();
       render();
     });
+    document.addEventListener("pointerdown", () => { ensureAudio(); }, { once: true });
     document.getElementById("goalSilverBtn").addEventListener("click", () => setTarget(SILVER));
     document.getElementById("goalGoldBtn").addEventListener("click", () => setTarget(GOLD));
     document.getElementById("languageSelect").addEventListener("change", event => setLanguage(event.target.value));
@@ -2514,6 +2728,11 @@
 
     applyLanguage();
     render();
+    if (!FILE_ORIGIN) {
+      setTimeout(() => {
+        try { ensureChanceWorker(); } catch (error) {}
+      }, 0);
+    }
   </script>
 </body>
 </html>
