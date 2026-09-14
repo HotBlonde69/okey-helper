@@ -415,8 +415,8 @@
     </div>
   </div>
 
-  <script src="opening-book.js?v=20260914c"></script>
-  <script src="okey-net.js?v=20260914c"></script>
+  <script src="opening-book.js?v=20260914d"></script>
+  <script src="okey-net.js?v=20260914d"></script>
   <script>
     const COLORS = ["blue", "red", "yellow"];
     const COLOR_PERMS = [
@@ -1053,6 +1053,34 @@
       return null;
     }
 
+    function silverIsLost(advice) {
+      if (score >= SILVER) return false;
+      if (!advice || advice.pSilver == null) return false;
+      if (advice.fromNet && !advice.netRefined && !advice.exact && !advice.samples) return false;
+      return Math.round(advice.pSilver * 100) === 0;
+    }
+
+    function lostSilverAdvice(source) {
+      const ending = findCombos(remainingCards()).length === 0 ? "noPoints" : "minimumGoal";
+      return {
+        kind: "gameover",
+        title: tr("gameOverTitle"),
+        why: tr(ending === "noPoints" ? "gameOverNoPointsWhy" : "gameOverWhy"),
+        pSilver: 0,
+        pGold: score >= GOLD ? 1 : 0,
+        avg: source && source.avg != null ? source.avg : score,
+        exact: !!(source && source.exact),
+        samples: (source && source.samples) || 0
+      };
+    }
+
+    function finalizeAdvice(advice) {
+      if (!advice || advice.kind === "gameover") return advice;
+      if (advice.kind !== "play" && advice.kind !== "discard") return advice;
+      if (silverIsLost(advice)) return lostSilverAdvice(advice);
+      return advice;
+    }
+
     function currentGoal(sc) {
       if (sc >= target) return 0;
       return target;
@@ -1658,7 +1686,7 @@
       }
 
       if (best.kind === "play") {
-        return {
+        return finalizeAdvice({
           kind: "play",
           combo: best.combo,
           keys: best.keys,
@@ -1672,9 +1700,9 @@
           exact: true,
           samples: 0,
           nodes: control.nodes
-        };
+        });
       }
-      return {
+      return finalizeAdvice({
         kind: "discard",
         card: best.card,
         keys: best.keys,
@@ -1688,7 +1716,7 @@
         exact: true,
         samples: 0,
         nodes: control.nodes
-      };
+      });
     }
 
     const ADVICE_CACHE_LIMIT = 80;
@@ -1713,7 +1741,7 @@
       const deckCount = 24 - used.size - slots.filter(Boolean).length;
       if (deckCount <= 8) {
         try {
-          return exactAdvice(1500);
+          return finalizeAdvice(exactAdvice(1500));
         } catch (error) {
           if (!error || error.message !== "exact-timeout") throw error;
         }
@@ -1722,7 +1750,7 @@
       const result = await advisePlay();
       result.exact = false;
       result.samples = analysisSamples;
-      return result;
+      return finalizeAdvice(result);
     }
 
     async function refineAdvice(action) {
@@ -1748,7 +1776,7 @@
         const afterUsed = new Set(used);
         combo.keys.forEach(key => afterUsed.add(key));
         const ch = await sampleChances(cards.filter(c => combo.keys.indexOf(c.key) < 0), afterUsed, score + combo.score, goal, rolloutSeeds);
-        return stampNetRefine({
+        return finalizeAdvice(stampNetRefine({
           kind: "play",
           combo,
           keys: combo.keys,
@@ -1761,7 +1789,7 @@
           samples: analysisSamples,
           title: tr("playTitle", { label: combo.label, score: combo.score }),
           why: playWhy(combo, score + combo.score, maxPoints(withoutKeys(remainingCards(), combo.keys)), goal, ch.p, ch.avg)
-        }, action);
+        }, action));
       }
       const card = action.card || cardByKey((action.keys || [])[0]);
       if (!card) return null;
@@ -1777,7 +1805,7 @@
         avg: ch.avg,
         analysis: evaluateDiscard(card, cards, pool, desperate)
       };
-      return stampNetRefine({
+      return finalizeAdvice(stampNetRefine({
         kind: "discard",
         card,
         keys: [card.key],
@@ -1790,7 +1818,7 @@
         samples: analysisSamples,
         title: tr("discardTitle", { card: cardLabel(card) }),
         why: discardWhy(best, [best], [{ kind: "discard", card, brick: false }], goal)
-      }, action);
+      }, action));
     }
 
     function stampNetRefine(result, action) {
@@ -1925,6 +1953,7 @@
         colorRunNeeds, pairValueFromNeeds, seededComboValue,
         evaluateDiscard, goodCombosFrom, takeGreedyGood, optimisticGood, poolKey,
         maxPointsExact, maxPoints, currentGoal, withoutKeys, comboDestroysColorSeq,
+        silverIsLost, lostSilverAdvice, finalizeAdvice,
         advisePlay, playWhy, discardWhy, hash32, makeRolloutSeeds, mix32, orderedDeck,
         simAction, simulateRestFrom, chanceFrom, sampleChances, exactValue, exactAdvice,
         cacheSet, applyWorkerState, computeAdvice, refineAdvice, stampNetRefine, sleep, runPrefetch
@@ -2596,8 +2625,10 @@
         paintChance({
           silverPct: score >= SILVER ? 100 : 0,
           goldPct: score >= GOLD ? 100 : 0,
-          avg: score,
-          max: score + maxPointsExact(remainingCards())
+          avg: advice.avg != null ? Math.round(advice.avg) : score,
+          max: score + maxPointsExact(remainingCards()),
+          exact: !!advice.exact,
+          samples: advice.samples || 0
         });
         return;
       }
@@ -2813,9 +2844,10 @@
       const existing = adviceCache.get(message.key);
       if (existing && existing.fromNet && message.type !== "refine") return;
       if (message.type === "prefetch" && existing && isCommittedAdvice(existing)) return;
-      if (message.type === "refine" && existing && existing.fromNet) {
+      if (message.type === "refine" && existing && existing.fromNet && message.advice.kind !== "gameover") {
         message.advice = keepNetAction(existing, message.advice);
       }
+      message.advice = finalizeAdvice(message.advice);
       cacheSet(adviceCache, message.key, message.advice, ADVICE_CACHE_LIMIT);
       if (message.key !== chanceStateKey()) return;
       if (!handReadyForAdvice()) return;
@@ -2939,6 +2971,11 @@
       if (!cached && handKeys().length === 5) {
         cached = adviceFromOpeningBook();
         if (cached) cacheSet(adviceCache, key, cached, ADVICE_CACHE_LIMIT);
+      }
+      if (cached) {
+        const done = finalizeAdvice(cached);
+        if (done !== cached) cacheSet(adviceCache, key, done, ADVICE_CACHE_LIMIT);
+        cached = done;
       }
       advice = cached || placeholderAdvice();
       renderHand();
