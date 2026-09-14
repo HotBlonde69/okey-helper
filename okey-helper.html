@@ -415,8 +415,8 @@
     </div>
   </div>
 
-  <script src="opening-book.js?v=20260914"></script>
-  <script src="okey-net.js?v=20260914"></script>
+  <script src="opening-book.js?v=20260914c"></script>
+  <script src="okey-net.js?v=20260914c"></script>
   <script>
     const COLORS = ["blue", "red", "yellow"];
     const COLOR_PERMS = [
@@ -1734,13 +1734,11 @@
         target + "|" + score + "|" + cards.map(c => c.key).sort().join(",") + "|" + [...used].sort().join(",")
       );
       const cardChances = {};
-      if (!action.fromNet) {
-        for (const card of cards) {
-          const afterUsed = new Set(used);
-          afterUsed.add(card.key);
-          const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
-          cardChances[card.key] = Math.round(ch.p * 100);
-        }
+      for (const card of cards) {
+        const afterUsed = new Set(used);
+        afterUsed.add(card.key);
+        const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
+        cardChances[card.key] = Math.round(ch.p * 100);
       }
       if (action.kind === "play" && action.keys) {
         const combo = findCombos(cards).find(item =>
@@ -2080,15 +2078,6 @@
       return target === GOLD ? out.discardGold : out.discardSilver;
     }
 
-    function netCardChances(handSorted, out) {
-      const src = netDiscardLogits(out);
-      const map = {};
-      for (let i = 0; i < handSorted.length; i++) {
-        map[handSorted[i]] = Math.max(0, Math.min(100, Math.round(src[i] * 100)));
-      }
-      return map;
-    }
-
     function netValueChances(out) {
       const pSilver = Math.max(0, Math.min(1, out.value[1]));
       const pGold = Math.max(0, Math.min(1, out.value[2]));
@@ -2112,7 +2101,6 @@
       const goal = currentGoal(score);
       const out = netForward(handSorted, [...used], score, target);
       const ch = netValueChances(out);
-      const cardChances = netCardChances(handSorted, out);
       const locked = combos.filter(combo => combo.sameColor || combo.type === "group");
       locked.sort((a, b) => b.score - a.score);
       const reaching = combos.filter(combo => goal && score + combo.score >= goal);
@@ -2133,7 +2121,6 @@
           pSilver: ch.pSilver,
           pGold: ch.pGold,
           avg: ch.avg,
-          cardChances,
           fromNet: true,
           netMove,
           title: tr("playTitle", { label: combo.label, score: combo.score }),
@@ -2149,7 +2136,6 @@
         pSilver: ch.pSilver,
         pGold: ch.pGold,
         avg: ch.avg,
-        cardChances,
         fromNet: true,
         netMove,
         title: tr("discardTitle", { card: cardLabel(card) }),
@@ -2819,11 +2805,6 @@
       refined.netMove = net.netMove;
       refined.netRefined = true;
       refined.title = net.title;
-      const refinedChances = refined.cardChances || {};
-      const netChances = net.cardChances || {};
-      refined.cardChances = Object.keys(refinedChances).length
-        ? Object.assign({}, netChances, refinedChances)
-        : netChances;
       return refined;
     }
 
