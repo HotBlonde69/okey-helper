@@ -390,7 +390,7 @@
     </div>
     <p class="hint" id="instructions">
       Arrasta uma carta de baixo para um espaço vazio.
-      A sugestão só aparece com 5 cartas.
+      A sugestão aparece com 5 cartas, ou com as que restarem quando o baralho acaba.
       Clique esquerdo na mão: jogar a combinação.
       Clique direito numa carta da mão: descartar.
     </p>
@@ -416,6 +416,7 @@
   </div>
 
   <script src="opening-book.js"></script>
+  <script src="okey-net.js"></script>
   <script>
     const COLORS = ["blue", "red", "yellow"];
     const COLOR_PERMS = [
@@ -429,6 +430,7 @@
     const FILE_ORIGIN = location.protocol === "file:";
     const SILVER = 300;
     const GOLD = 400;
+    const NET_EARLY_MOVES = 4;
     const I18N = {
       pt: {
         language: "Idioma",
@@ -436,7 +438,7 @@
         silver: "Prata",
         gold: "Ouro",
         hand: "Mão",
-        instructions: "Arrasta uma carta de baixo para um espaço vazio. A sugestão só aparece com 5 cartas. Clique esquerdo na mão: jogar a combinação. Clique direito numa carta da mão: descartar.",
+        instructions: "Arrasta uma carta de baixo para um espaço vazio. A sugestão aparece com 5 cartas, ou com as que restarem quando o baralho acaba. Clique esquerdo na mão: jogar a combinação. Clique direito numa carta da mão: descartar.",
         play: "Jogar",
         discard: "Descartar",
         used: "Já saiu",
@@ -458,6 +460,8 @@
         completeTitle: "Completa a mão ({count}/5)",
         completeWhyLong: "Faltam {missing} carta(s). A jogada (combinar ou descartar) só é calculada com 5 cartas.",
         completeWhy: "Faltam {missing} carta(s). A jogada só é calculada com 5 cartas.",
+        addRemainingTitle: "Adiciona as cartas que restam ({count} na mão)",
+        addRemainingWhy: "O baralho só tem {deck} carta(s): já não dá para chegar a 5. A jogada é calculada quando não houver mais cartas para puxar.",
         playTitle: "Jogar {label}  +{score}",
         discardTitle: "Descartar o {card}",
         sameSequenceWhy: "Sequência da mesma cor — a jogada que mais pontos dá.",
@@ -487,7 +491,7 @@
         chanceSummaryBoth: "Prata: {silver}% · Ouro: {gold}% · média simulada: {avg} pts",
         exactCalculation: "cálculo exacto",
         scenarios: "{count} cenários",
-        chanceFullHand: "As chances só são calculadas quando a mão estiver cheia.",
+        chanceFullHand: "As chances só são calculadas quando a mão estiver cheia, ou quando o baralho acabar.",
         calculating: "A calcular…",
         deckInfo: "Baralho: {deck} · Já saíram: {used} · Mão: {hand}/5",
         calculatingTitle: "A calcular a melhor jogada…",
@@ -498,6 +502,9 @@
         interrupted: "A análise foi interrompida.",
         unknownError: "Erro desconhecido.",
         openingBook: "cache inicial",
+        netHint: "Sugestão da rede ({n}/{total}).",
+        netChance: "rede",
+        netDiscardWhy: "A rede escolhe descartar esta carta.",
         fileOriginWhy: "A abrir o ficheiro localmente o Chrome bloqueia o cálculo em segundo plano. A primeira mão usa o cache inicial; as seguintes correm nesta página.",
         gameOverTitle: "Game Over!",
         gameOverWhy: "É impossível alcançar o objectivo mínimo de 300 pontos. O jogo pode ser terminado.",
@@ -509,7 +516,7 @@
         silver: "Silver",
         gold: "Gold",
         hand: "Hand",
-        instructions: "Drag a card from below into an empty slot. A suggestion appears only with 5 cards. Left-click the hand to play the combination. Right-click a card in the hand to discard it.",
+        instructions: "Drag a card from below into an empty slot. A suggestion appears with 5 cards, or with whatever is left when the deck runs out. Left-click the hand to play the combination. Right-click a card in the hand to discard it.",
         play: "Play",
         discard: "Discard",
         used: "Already used",
@@ -531,6 +538,8 @@
         completeTitle: "Complete the hand ({count}/5)",
         completeWhyLong: "{missing} card(s) missing. The move (play or discard) is calculated only with 5 cards.",
         completeWhy: "{missing} card(s) missing. The move is calculated only with 5 cards.",
+        addRemainingTitle: "Add the remaining cards ({count} in hand)",
+        addRemainingWhy: "The deck only has {deck} card(s) left, so the hand cannot reach 5. The move is calculated when there are no more cards to draw.",
         playTitle: "Play {label}  +{score}",
         discardTitle: "Discard {card}",
         sameSequenceWhy: "Same-color sequence — the highest-scoring move.",
@@ -560,7 +569,7 @@
         chanceSummaryBoth: "Silver: {silver}% · Gold: {gold}% · simulated average: {avg} pts",
         exactCalculation: "exact calculation",
         scenarios: "{count} scenarios",
-        chanceFullHand: "The chances are calculated only when the hand is full.",
+        chanceFullHand: "The chances are calculated when the hand is full, or when the deck is empty.",
         calculating: "Calculating…",
         deckInfo: "Deck: {deck} · Already used: {used} · Hand: {hand}/5",
         calculatingTitle: "Calculating the best move…",
@@ -571,6 +580,9 @@
         interrupted: "The analysis was interrupted.",
         unknownError: "Unknown error.",
         openingBook: "opening cache",
+        netHint: "Neural-net suggestion ({n}/{total}).",
+        netChance: "neural net",
+        netDiscardWhy: "The net chooses to discard this card.",
         fileOriginWhy: "Opening this file locally makes Chrome block background analysis. The first hand uses the opening cache; later hands run on this page.",
         gameOverTitle: "Game Over!",
         gameOverWhy: "It is impossible to reach the minimum target of 300 points. The game can be ended.",
@@ -661,7 +673,7 @@
 
     function notifyChanceSounds(ch) {
       if (!ch || ch.silverPct == null || ch.goldPct == null) return;
-      if (handKeys().length < 5 && !(advice && advice.kind === "gameover")) return;
+      if (!handReadyForAdvice() && !(advice && advice.kind === "gameover")) return;
       const silverPct = Math.max(0, Math.min(100, ch.silverPct));
       const goldPct = Math.max(0, Math.min(100, ch.goldPct));
       const noPoints = gameOverReason() === "noPoints";
@@ -701,6 +713,19 @@
     function handKeys() { return slots.filter(Boolean); }
     function handCards() { return handKeys().map(cardByKey); }
     function remainingCards() { return ALL.filter(c => !used.has(c.key)); }
+    function unseenCount() { return 24 - used.size - handKeys().length; }
+    function noCardsLeftToDraw() { return unseenCount() <= 0; }
+    function handReadyForAdvice() {
+      const n = handKeys().length;
+      return n >= 5 || (n > 0 && noCardsLeftToDraw());
+    }
+    function noMorePlaysAdvice() {
+      return {
+        kind: "gameover",
+        title: tr("gameOverTitle"),
+        why: tr("gameOverNoPointsWhy")
+      };
+    }
     function hasCard(pool, color, rank) { return pool.some(c => c.color === color && c.rank === rank); }
 
     function classify(trio) {
@@ -1052,11 +1077,20 @@
           why: tr("emptyWhy")
         };
       }
-      if (cards.length < 5) {
+      if (cards.length < 5 && !noCardsLeftToDraw()) {
+        const deck = unseenCount();
+        const missing = 5 - cards.length;
+        if (deck < missing) {
+          return {
+            kind: "wait",
+            title: tr("addRemainingTitle", { count: cards.length }),
+            why: tr("addRemainingWhy", { deck })
+          };
+        }
         return {
           kind: "wait",
           title: tr("completeTitle", { count: cards.length }),
-          why: tr("completeWhyLong", { missing: 5 - cards.length })
+          why: tr("completeWhyLong", { missing })
         };
       }
 
@@ -1086,23 +1120,27 @@
         });
       }
 
-      for (const card of cards) {
-        const afterPool = withoutKeys(pool, [card.key]);
-        const afterHand = cards.filter(c => c.key !== card.key);
-        const afterUsed = new Set(used);
-        afterUsed.add(card.key);
-        const ceil = score + maxPoints(afterPool);
-        actions.push({
-          kind: "discard",
-          card,
-          keys: [card.key],
-          ceil,
-          brick: goal && score < goal && ceil < goal,
-          afterHand,
-          afterUsed,
-          analysis: evaluateDiscard(card, cards, pool, desperate)
-        });
+      if (cards.length >= 5) {
+        for (const card of cards) {
+          const afterPool = withoutKeys(pool, [card.key]);
+          const afterHand = cards.filter(c => c.key !== card.key);
+          const afterUsed = new Set(used);
+          afterUsed.add(card.key);
+          const ceil = score + maxPoints(afterPool);
+          actions.push({
+            kind: "discard",
+            card,
+            keys: [card.key],
+            ceil,
+            brick: goal && score < goal && ceil < goal,
+            afterHand,
+            afterUsed,
+            analysis: evaluateDiscard(card, cards, pool, desperate)
+          });
+        }
       }
+
+      if (!actions.length) return noMorePlaysAdvice();
 
       let opts = actions.filter(a => !a.brick);
       if (!opts.length) opts = actions.slice();
@@ -1583,22 +1621,26 @@
         });
       }
 
-      for (const card of cards) {
-        const afterHand = cards.filter(c => c.key !== card.key);
-        const value = exactValue(afterHand, deck, score, memo, control);
-        actions.push({
-          kind: "discard",
-          card,
-          keys: [card.key],
-          p: value.p,
-          pSilver: value.pSilver,
-          pGold: value.pGold,
-          avg: value.avg,
-          ceil: score + maxPoints(withoutKeys(pool, [card.key])),
-          brick: value.p === 0,
-          analysis: evaluateDiscard(card, cards, pool, false)
-        });
+      if (cards.length >= 5) {
+        for (const card of cards) {
+          const afterHand = cards.filter(c => c.key !== card.key);
+          const value = exactValue(afterHand, deck, score, memo, control);
+          actions.push({
+            kind: "discard",
+            card,
+            keys: [card.key],
+            p: value.p,
+            pSilver: value.pSilver,
+            pGold: value.pGold,
+            avg: value.avg,
+            ceil: score + maxPoints(withoutKeys(pool, [card.key])),
+            brick: value.p === 0,
+            analysis: evaluateDiscard(card, cards, pool, false)
+          });
+        }
       }
+
+      if (!actions.length) return noMorePlaysAdvice();
 
       actions.sort((a, b) => {
         const byAverage = b.avg - a.avg;
@@ -1692,21 +1734,23 @@
         target + "|" + score + "|" + cards.map(c => c.key).sort().join(",") + "|" + [...used].sort().join(",")
       );
       const cardChances = {};
-      for (const card of cards) {
-        const afterUsed = new Set(used);
-        afterUsed.add(card.key);
-        const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
-        cardChances[card.key] = Math.round(ch.p * 100);
+      if (!action.fromNet) {
+        for (const card of cards) {
+          const afterUsed = new Set(used);
+          afterUsed.add(card.key);
+          const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
+          cardChances[card.key] = Math.round(ch.p * 100);
+        }
       }
       if (action.kind === "play" && action.keys) {
         const combo = findCombos(cards).find(item =>
           item.keys.length === action.keys.length && action.keys.every(key => item.keys.indexOf(key) >= 0)
         );
-        if (!combo) return await computeAdvice();
+        if (!combo) return null;
         const afterUsed = new Set(used);
         combo.keys.forEach(key => afterUsed.add(key));
         const ch = await sampleChances(cards.filter(c => combo.keys.indexOf(c.key) < 0), afterUsed, score + combo.score, goal, rolloutSeeds);
-        return {
+        return stampNetRefine({
           kind: "play",
           combo,
           keys: combo.keys,
@@ -1719,10 +1763,10 @@
           samples: analysisSamples,
           title: tr("playTitle", { label: combo.label, score: combo.score }),
           why: playWhy(combo, score + combo.score, maxPoints(withoutKeys(remainingCards(), combo.keys)), goal, ch.p, ch.avg)
-        };
+        }, action);
       }
       const card = action.card || cardByKey((action.keys || [])[0]);
-      if (!card) return await computeAdvice();
+      if (!card) return null;
       const afterUsed = new Set(used);
       afterUsed.add(card.key);
       const ch = await sampleChances(cards.filter(c => c.key !== card.key), afterUsed, score, goal, rolloutSeeds);
@@ -1735,7 +1779,7 @@
         avg: ch.avg,
         analysis: evaluateDiscard(card, cards, pool, desperate)
       };
-      return {
+      return stampNetRefine({
         kind: "discard",
         card,
         keys: [card.key],
@@ -1748,7 +1792,20 @@
         samples: analysisSamples,
         title: tr("discardTitle", { card: cardLabel(card) }),
         why: discardWhy(best, [best], [{ kind: "discard", card, brick: false }], goal)
-      };
+      }, action);
+    }
+
+    function stampNetRefine(result, action) {
+      if (!result || !action || !action.fromNet) return result;
+      result.fromNet = true;
+      result.netRefined = true;
+      result.netMove = action.netMove;
+      const bits = [tr("netHint", { n: action.netMove, total: NET_EARLY_MOVES })];
+      if (result.kind === "discard") bits.push(tr("netDiscardWhy"));
+      if (result.p != null && currentGoal(score)) bits.push(tr("goalChance", { pct: Math.round(result.p * 100) }));
+      if (result.avg != null) bits.push(tr("averageFinal", { avg: Math.round(result.avg) }));
+      result.why = bits.join(" ");
+      return result;
     }
 
     function sleep(ms) {
@@ -1814,7 +1871,7 @@
         const token = ++analyzeGen;
         applyWorkerState(msg);
         Promise.resolve(refineAdvice(msg.action)).then(advice => {
-          if (token !== analyzeGen) return;
+          if (token !== analyzeGen || !advice) return;
           cacheSet(workerAdviceCache, msg.key, advice, ADVICE_CACHE_LIMIT);
           self.postMessage({ type: "refine", key: msg.key, advice, done: true });
         });
@@ -1850,6 +1907,7 @@
         'const ALL = ' + JSON.stringify(ALL) + ';',
         'const ADVICE_CACHE_LIMIT = ' + ADVICE_CACHE_LIMIT + ';',
         'const PREFETCH_BUDGET_MS = ' + PREFETCH_BUDGET_MS + ';',
+        'const NET_EARLY_MOVES = ' + NET_EARLY_MOVES + ';',
         'let language = ' + JSON.stringify(language) + ';',
         'let slots = [null, null, null, null, null];',
         'let used = new Set();',
@@ -1863,14 +1921,15 @@
         'let workerPaused = false;'
       ];
       const functions = [
-        tr, colorName, cardLabel, groupScore, seqScore, cardByKey, handKeys, handCards, remainingCards, hasCard,
+        tr, colorName, cardLabel, groupScore, seqScore, cardByKey, handKeys, handCards, remainingCards,
+        unseenCount, noCardsLeftToDraw, handReadyForAdvice, noMorePlaysAdvice, hasCard,
         classify, findCombos, keepValue, comboPlayValue, bestComboIn, drawPile,
         colorRunNeeds, pairValueFromNeeds, seededComboValue,
         evaluateDiscard, goodCombosFrom, takeGreedyGood, optimisticGood, poolKey,
         maxPointsExact, maxPoints, currentGoal, withoutKeys, comboDestroysColorSeq,
         advisePlay, playWhy, discardWhy, hash32, makeRolloutSeeds, mix32, orderedDeck,
         simAction, simulateRestFrom, chanceFrom, sampleChances, exactValue, exactAdvice,
-        cacheSet, applyWorkerState, computeAdvice, refineAdvice, sleep, runPrefetch
+        cacheSet, applyWorkerState, computeAdvice, refineAdvice, stampNetRefine, sleep, runPrefetch
       ];
       const source =
         declarations.join("\n") + "\n" +
@@ -1914,6 +1973,188 @@
         fromCanon[bestToCanon[color]] = color;
       });
       return { sig: bestSig, fromCanon: fromCanon };
+    }
+
+    function movesMade() {
+      let start = 0;
+      for (let i = histPos; i >= 0; i--) {
+        if (history[i].used.length === 0 && history[i].score === 0) {
+          start = i;
+          break;
+        }
+      }
+      let n = 0;
+      for (let i = start + 1; i <= histPos; i++) {
+        if (history[i].used.length > history[i - 1].used.length) n++;
+      }
+      return n;
+    }
+
+    let netLayerCache = null;
+
+    function netSpec() {
+      return typeof window !== "undefined" ? window.OKEY_NET : null;
+    }
+
+    function b64ToF32(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Float32Array(bytes.buffer);
+    }
+
+    function netLayerData() {
+      if (netLayerCache) return netLayerCache;
+      const spec = netSpec();
+      if (!spec || !spec.layers) return null;
+      netLayerCache = {};
+      Object.keys(spec.layers).forEach(name => {
+        const layer = spec.layers[name];
+        netLayerCache[name] = { shape: layer.shape, data: b64ToF32(layer.b64) };
+      });
+      return netLayerCache;
+    }
+
+    function dense(x, weightName, biasName) {
+      const layers = netLayerData();
+      const w = layers[weightName];
+      const b = layers[biasName];
+      const outDim = w.shape[0];
+      const inDim = w.shape[1];
+      const y = new Float32Array(outDim);
+      const wd = w.data;
+      const bd = b.data;
+      for (let o = 0; o < outDim; o++) {
+        let s = bd[o];
+        const row = o * inDim;
+        for (let i = 0; i < inDim; i++) s += x[i] * wd[row + i];
+        y[o] = s;
+      }
+      return y;
+    }
+
+    function relu(x) {
+      for (let i = 0; i < x.length; i++) if (x[i] < 0) x[i] = 0;
+      return x;
+    }
+
+    function argmax(arr) {
+      let best = 0;
+      for (let i = 1; i < arr.length; i++) if (arr[i] > arr[best]) best = i;
+      return best;
+    }
+
+    function encodeNetState(hand, usedKeys, sc, tgt) {
+      const spec = netSpec();
+      const x = new Float32Array(spec.inDim);
+      const handSet = {};
+      const usedSet = {};
+      for (let i = 0; i < hand.length; i++) handSet[hand[i]] = 1;
+      for (let i = 0; i < usedKeys.length; i++) usedSet[usedKeys[i]] = 1;
+      for (let i = 0; i < spec.cardOrder.length; i++) {
+        const key = spec.cardOrder[i];
+        if (handSet[key]) x[i * 3] = 1;
+        else if (usedSet[key]) x[i * 3 + 1] = 1;
+        else x[i * 3 + 2] = 1;
+      }
+      x[72] = sc / 400;
+      x[73] = tgt / 400;
+      return x;
+    }
+
+    function netForward(hand, usedKeys, sc, tgt) {
+      let h = encodeNetState(hand, usedKeys, sc, tgt);
+      h = relu(dense(h, "backbone.0.weight", "backbone.0.bias"));
+      h = relu(dense(h, "backbone.3.weight", "backbone.3.bias"));
+      h = relu(dense(h, "backbone.6.weight", "backbone.6.bias"));
+      return {
+        discardAvg: dense(h, "discard_avg.weight", "discard_avg.bias"),
+        discardSilver: dense(h, "discard_silver.weight", "discard_silver.bias"),
+        discardGold: dense(h, "discard_gold.weight", "discard_gold.bias"),
+        kind: dense(h, "kind.weight", "kind.bias"),
+        value: dense(h, "value.weight", "value.bias")
+      };
+    }
+
+    function netDiscardLogits(out) {
+      return target === GOLD ? out.discardGold : out.discardSilver;
+    }
+
+    function netCardChances(handSorted, out) {
+      const src = netDiscardLogits(out);
+      const map = {};
+      for (let i = 0; i < handSorted.length; i++) {
+        map[handSorted[i]] = Math.max(0, Math.min(100, Math.round(src[i] * 100)));
+      }
+      return map;
+    }
+
+    function netValueChances(out) {
+      const pSilver = Math.max(0, Math.min(1, out.value[1]));
+      const pGold = Math.max(0, Math.min(1, out.value[2]));
+      const avg = Math.max(0, out.value[0] * 400);
+      return { pSilver: pSilver, pGold: pGold, avg: avg, p: currentGoal(score) === GOLD ? pGold : pSilver };
+    }
+
+    function withNetNote(why) {
+      const note = tr("netHint", { n: movesMade() + 1, total: NET_EARLY_MOVES });
+      return note + (why ? " " + why : "");
+    }
+
+    function adviseFromNet() {
+      if (movesMade() >= NET_EARLY_MOVES) return null;
+      if (!netLayerData()) return null;
+      if (handKeys().length !== 5) return null;
+      const handSorted = handKeys().slice().sort();
+      const cards = handCards();
+      const combos = findCombos(cards);
+      const pool = remainingCards();
+      const goal = currentGoal(score);
+      const out = netForward(handSorted, [...used], score, target);
+      const ch = netValueChances(out);
+      const cardChances = netCardChances(handSorted, out);
+      const locked = combos.filter(combo => combo.sameColor || combo.type === "group");
+      locked.sort((a, b) => b.score - a.score);
+      const reaching = combos.filter(combo => goal && score + combo.score >= goal);
+      reaching.sort((a, b) => b.score - a.score);
+      const mixed = combos.filter(combo => combo.type === "seq" && !combo.sameColor);
+      mixed.sort((a, b) => b.score - a.score);
+      let combo = null;
+      if (locked.length) combo = locked[0];
+      else if (reaching.length) combo = reaching[0];
+      else if (mixed.length && argmax(out.kind) === 1) combo = mixed[0];
+      const netMove = movesMade() + 1;
+      if (combo) {
+        return {
+          kind: "play",
+          combo,
+          keys: combo.keys,
+          p: ch.p,
+          pSilver: ch.pSilver,
+          pGold: ch.pGold,
+          avg: ch.avg,
+          cardChances,
+          fromNet: true,
+          netMove,
+          title: tr("playTitle", { label: combo.label, score: combo.score }),
+          why: withNetNote(playWhy(combo, score + combo.score, maxPoints(withoutKeys(pool, combo.keys)), goal, ch.p, ch.avg))
+        };
+      }
+      const card = cardByKey(handSorted[argmax(netDiscardLogits(out))]);
+      return {
+        kind: "discard",
+        card,
+        keys: [card.key],
+        p: ch.p,
+        pSilver: ch.pSilver,
+        pGold: ch.pGold,
+        avg: ch.avg,
+        cardChances,
+        fromNet: true,
+        netMove,
+        title: tr("discardTitle", { card: cardLabel(card) }),
+        why: withNetNote(tr("netDiscardWhy"))
+      };
     }
 
     function adviceFromOpeningBook() {
@@ -1977,23 +2218,6 @@
         fromOpeningBook: true,
         title: tr("discardTitle", { card: cardLabel(card) }),
         why: discardWhy(best, [best], [{ kind: "discard", card, brick: false }], goal)
-      };
-    }
-
-    function instantLockedAdvice() {
-      if (handKeys().length !== 5) return null;
-      const cards = handCards();
-      const locked = findCombos(cards).filter(combo => combo.sameColor || combo.type === "group");
-      if (!locked.length) return null;
-      locked.sort((a, b) => b.score - a.score);
-      const combo = locked[0];
-      const pool = remainingCards();
-      return {
-        kind: "play",
-        combo,
-        keys: combo.keys,
-        title: tr("playTitle", { label: combo.label, score: combo.score }),
-        why: playWhy(combo, score + combo.score, maxPoints(withoutKeys(pool, combo.keys)), currentGoal(score))
       };
     }
 
@@ -2245,6 +2469,7 @@
         avg: ch.avg
       });
       if (ch.exact) hint.textContent += " · " + tr("exactCalculation");
+      else if (ch.fromNet) hint.textContent += " · " + tr("netChance") + (ch.samples ? " · " + tr("scenarios", { count: ch.samples }) : "");
       else if (ch.fromOpeningBook) hint.textContent += " · " + tr("openingBook") + (ch.samples ? " · " + tr("scenarios", { count: ch.samples }) : "");
       else if (ch.samples) hint.textContent += " · " + tr("scenarios", { count: ch.samples });
       notifyChanceSounds({ silverPct: silverPct, goldPct: goldPct });
@@ -2391,7 +2616,7 @@
         return;
       }
 
-      if (inHand < 5) {
+      if (inHand < 5 && !noCardsLeftToDraw()) {
         if (chanceCacheVal) paintChance(chanceCacheVal);
         else paintChancePending();
         return;
@@ -2415,7 +2640,8 @@
           max: score + maxPoints(remainingCards()),
           exact: !!advice.exact,
           samples: advice.samples || 0,
-          fromOpeningBook: !!advice.fromOpeningBook
+          fromOpeningBook: !!advice.fromOpeningBook,
+          fromNet: !!advice.fromNet
         };
       } else {
         ch = estimateChance();
@@ -2471,11 +2697,22 @@
         };
       }
       if (count < 5) {
-        return {
-          kind: "wait",
-          title: tr("completeTitle", { count }),
-          why: tr("completeWhy", { missing: 5 - count })
-        };
+        const deck = unseenCount();
+        if (deck > 0) {
+          const missing = 5 - count;
+          if (deck < missing) {
+            return {
+              kind: "wait",
+              title: tr("addRemainingTitle", { count }),
+              why: tr("addRemainingWhy", { deck })
+            };
+          }
+          return {
+            kind: "wait",
+            title: tr("completeTitle", { count }),
+            why: tr("completeWhy", { missing })
+          };
+        }
       }
       return {
         kind: "calculating",
@@ -2521,7 +2758,7 @@
         }));
         return;
       }
-      if (handKeys().length === 4) scheduleCompletionPrefetch();
+      if (handKeys().length === 4 && !noCardsLeftToDraw()) scheduleCompletionPrefetch();
     }
 
     function scheduleCompletionPrefetch() {
@@ -2567,11 +2804,42 @@
       });
     }
 
+    function isCommittedAdvice(a) {
+      return !!(a && (a.kind === "play" || a.kind === "discard") && (
+        a.fromNet || a.fromOpeningBook || a.pSilver != null || a.exact
+      ));
+    }
+
+    function keepNetAction(net, refined) {
+      refined.kind = net.kind;
+      refined.keys = (net.keys || []).slice();
+      refined.card = net.card;
+      refined.combo = net.combo;
+      refined.fromNet = true;
+      refined.netMove = net.netMove;
+      refined.netRefined = true;
+      refined.title = net.title;
+      const refinedChances = refined.cardChances || {};
+      const netChances = net.cardChances || {};
+      refined.cardChances = Object.keys(refinedChances).length
+        ? Object.assign({}, netChances, refinedChances)
+        : netChances;
+      return refined;
+    }
+
     function applyWorkerAdvice(message) {
-      if (message.advice) cacheSet(adviceCache, message.key, message.advice, ADVICE_CACHE_LIMIT);
+      if (!message.advice) return;
+      const existing = adviceCache.get(message.key);
+      if (existing && existing.fromNet && message.type !== "refine") return;
+      if (message.type === "prefetch" && existing && isCommittedAdvice(existing)) return;
+      if (message.type === "refine" && existing && existing.fromNet) {
+        message.advice = keepNetAction(existing, message.advice);
+      }
+      cacheSet(adviceCache, message.key, message.advice, ADVICE_CACHE_LIMIT);
       if (message.key !== chanceStateKey()) return;
-      if (handKeys().length < 5) return;
-      const reuseHand = message.type === "refine" && advice && message.advice &&
+      if (!handReadyForAdvice()) return;
+      if (message.type === "prefetch" && isCommittedAdvice(advice)) return;
+      const reuseHand = message.type === "refine" && advice &&
         advice.kind === message.advice.kind &&
         (advice.keys || []).slice().sort().join(",") === (message.advice.keys || []).slice().sort().join(",");
       advice = message.advice;
@@ -2582,7 +2850,9 @@
       else renderHand();
       renderAdvice();
       renderScore();
-      if ((message.type === "analyze" || message.type === "refine") && message.done) schedulePrefetchFromAdvice(message.advice);
+      if ((message.type === "analyze" || message.type === "refine") && message.done && movesMade() >= NET_EARLY_MOVES - 1) {
+        schedulePrefetchFromAdvice(message.advice);
+      }
     }
 
     async function runMainThreadAdvice(key) {
@@ -2615,7 +2885,9 @@
       const payload = {
         kind: action.kind,
         keys: action.keys || [],
-        card: action.card || null
+        card: action.card || null,
+        fromNet: !!action.fromNet,
+        netMove: action.netMove || null
       };
       const worker = ensureChanceWorker();
       if (!worker) {
@@ -2641,7 +2913,7 @@
       if (job !== chanceJob || chanceStateKey() !== key) return;
       try {
         const result = await refineAdvice(action);
-        if (job !== chanceJob || chanceStateKey() !== key) return;
+        if (job !== chanceJob || chanceStateKey() !== key || !result) return;
         applyWorkerAdvice({ type: "refine", key: key, advice: result, done: true });
       } catch (error) {
         if (chanceStateKey() !== key) return;
@@ -2677,22 +2949,28 @@
         if (activeChanceWorker) activeChanceWorker.postMessage({ type: "cancel-prefetch" });
         lastPrefetchKey = "";
       }
-      let cached = handKeys().length === 5 ? adviceCache.get(key) : null;
+      const ready = handReadyForAdvice();
+      let cached = ready ? adviceCache.get(key) : null;
+      if (!cached && handKeys().length === 5) {
+        cached = adviseFromNet();
+        if (cached) cacheSet(adviceCache, key, cached, ADVICE_CACHE_LIMIT);
+      }
       if (!cached && handKeys().length === 5) {
         cached = adviceFromOpeningBook();
         if (cached) cacheSet(adviceCache, key, cached, ADVICE_CACHE_LIMIT);
       }
-      advice = cached || instantLockedAdvice() || placeholderAdvice();
+      advice = cached || placeholderAdvice();
       renderHand();
       renderBoard();
       renderAdvice();
       renderScore();
       fillTables();
       if (advice.kind === "gameover") return;
-      if (handKeys().length === 5 && !cached) requestAdviceAnalysis(key);
+      if (ready && !cached) requestAdviceAnalysis(key);
+      else if (cached && cached.fromNet && !cached.netRefined) requestAdviceRefine(key, cached);
       else if (cached && cached.fromOpeningBook && cached.pSilver == null) requestAdviceRefine(key, cached);
-      else if (cached) schedulePrefetchFromAdvice(cached);
-      else if (handKeys().length === 4) scheduleCompletionPrefetch();
+      else if (cached && movesMade() >= NET_EARLY_MOVES - 1) schedulePrefetchFromAdvice(cached);
+      else if (handKeys().length === 4 && !noCardsLeftToDraw() && movesMade() >= NET_EARLY_MOVES) scheduleCompletionPrefetch();
     }
 
     document.getElementById("board").addEventListener("dragover", (e) => e.preventDefault());
